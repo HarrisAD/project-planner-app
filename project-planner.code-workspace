@@ -1,0 +1,28 @@
+{
+    "folders": [
+      {
+        "path": "."
+      },
+      {
+        "path": "backend"
+      },
+      {
+        "path": "frontend"
+      }
+    ],
+    "settings": {
+      "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true
+      }
+    },
+    "extensions": {
+      "recommendations": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "eamodio.gitlens",
+        "christian-kohler.npm-intellisense",
+        "dsznajder.es7-react-js-snippets"
+      ]
+    }
+  }
