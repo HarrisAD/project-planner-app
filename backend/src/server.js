@@ -39,3 +39,11 @@ app.listen(PORT, () => {
     `📱 Health check available at http://localhost:${PORT}/api/health`
   );
 });
+// In your backend server.js or routes file
+app.get('/api/projects', (req, res) => {
+  // Temporary test data
+  res.json([
+    { id: 1, name: 'Test Project 1', status: 'active' },
+    { id: 2, name: 'Test Project 2', status: 'planning' },
+  ]);
+});
