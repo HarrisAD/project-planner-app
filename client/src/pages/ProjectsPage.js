@@ -15,7 +15,7 @@ import {
   Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { mockProjectService } from '../services/mockApi';
+import { projectService } from '../services/api';
 import ProjectForm from '../components/projects/ProjectForm';
 
 function ProjectsPage() {
@@ -27,18 +27,17 @@ function ProjectsPage() {
   // Add console log to check state
   console.log('Form open state:', openForm);
 
-  const fetchProjects = () => {
-    setLoading(true);
-    mockProjectService
-      .getAll()
-      .then((response) => {
-        setProjects(response.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const response = await projectService.getAll();
+      setProjects(response.data);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to fetch projects');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -46,14 +45,13 @@ function ProjectsPage() {
   }, []);
 
   const handleCreateProject = async (projectData) => {
-    console.log('Creating project with data:', projectData);
     try {
-      await mockProjectService.create(projectData);
+      await projectService.create(projectData);
       fetchProjects(); // Refresh the list
       setOpenForm(false);
     } catch (err) {
       console.error('Error creating project:', err);
-      setError('Failed to create project');
+      setError(err.response?.data?.error || 'Failed to create project');
     }
   };
 
@@ -124,8 +122,10 @@ function ProjectsPage() {
             <TableBody>
               {projects.map((project) => (
                 <TableRow key={project.id}>
-                  <TableCell>{project.name}</TableCell>
-                  <TableCell>{project.company}</TableCell>
+                  <TableCell>{project.name}</TableCell>{' '}
+                  {/* This will now work */}
+                  <TableCell>{project.company}</TableCell>{' '}
+                  {/* This will now work */}
                   <TableCell>{project.status}</TableCell>
                   <TableCell>
                     <Chip
@@ -134,7 +134,9 @@ function ProjectsPage() {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>{Math.round(project.progress * 100)}%</TableCell>
+                  <TableCell>
+                    {Math.round((project.progress || 0) * 100)}%
+                  </TableCell>
                   <TableCell>
                     <Button size="small">View</Button>
                   </TableCell>

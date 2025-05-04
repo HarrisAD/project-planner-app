@@ -10,4 +10,14 @@ const api = axios.create({
   },
 });
 
+export const projectService = {
+  getAll: () => api.get('/projects'),
+  create: (data) => api.post('/projects', data),
+};
+
+export const taskService = {
+  getAll: () => api.get('/tasks'),
+  create: (data) => api.post('/tasks', data),
+};
+
 export default api;

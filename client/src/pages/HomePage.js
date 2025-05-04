@@ -14,30 +14,37 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Alert,
 } from '@mui/material';
-import { mockProjectService } from '../services/mockApi';
+import { projectService } from '../services/api';
 
 function HomePage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    mockProjectService
-      .getAll()
-      .then((response) => {
-        setProjects(response.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Error fetching projects:', err);
-        setLoading(false);
-      });
+    fetchProjects();
   }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const response = await projectService.getAll();
+      setProjects(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      setError('Failed to fetch projects');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getMetrics = () => {
     const totalProjects = projects.length;
     const activeProjects = projects.filter(
-      (p) => p.status === 'In Progress'
+      (p) => p.status === 'In Progress' || p.status === 'Active'
     ).length;
     const atRiskProjects = projects.filter(
       (p) => p.rag === 2 || p.rag === 3
@@ -82,6 +89,12 @@ function HomePage() {
           Last refreshed: {new Date().toLocaleString()}
         </Typography>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -152,8 +165,10 @@ function HomePage() {
             <TableBody>
               {projects.map((project) => (
                 <TableRow key={project.id}>
-                  <TableCell>{project.name}</TableCell>
-                  <TableCell>{project.company}</TableCell>
+                  <TableCell>{project.name || project.workstream}</TableCell>
+                  <TableCell>
+                    {project.company || project.company_name}
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={
@@ -182,14 +197,14 @@ function HomePage() {
                               height: 10,
                               backgroundColor: 'primary.main',
                               borderRadius: 5,
-                              width: `${project.progress * 100}%`,
+                              width: `${(project.progress || 0) * 100}%`,
                             }}
                           />
                         </Box>
                       </Box>
                       <Box sx={{ minWidth: 35 }}>
                         <Typography variant="body2" color="text.secondary">
-                          {Math.round(project.progress * 100)}%
+                          {Math.round((project.progress || 0) * 100)}%
                         </Typography>
                       </Box>
                     </Box>

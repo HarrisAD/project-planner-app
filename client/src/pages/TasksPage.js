@@ -12,28 +12,29 @@ import {
   Paper,
   Chip,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { mockTaskService } from '../services/mockApi';
+import { taskService } from '../services/api';
 import TaskForm from '../components/tasks/TaskForm';
 
 function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openForm, setOpenForm] = useState(false);
+  const [error, setError] = useState(null);
 
-  const fetchTasks = () => {
-    setLoading(true);
-    mockTaskService
-      .getAll()
-      .then((response) => {
-        setTasks(response.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Error fetching tasks:', err);
-        setLoading(false);
-      });
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await taskService.getAll();
+      setTasks(response.data);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      setError(err.response?.data?.error || 'Failed to fetch tasks');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -42,16 +43,12 @@ function TasksPage() {
 
   const handleCreateTask = async (taskData) => {
     try {
-      // In the mock service, we'd normally add this
-      // For now, just add to the local state
-      const newTask = {
-        id: tasks.length + 1,
-        ...taskData,
-      };
-      setTasks([...tasks, newTask]);
+      await taskService.create(taskData);
+      fetchTasks(); // Refresh the list
       setOpenForm(false);
     } catch (err) {
       console.error('Error creating task:', err);
+      setError(err.response?.data?.error || 'Failed to create task');
     }
   };
 
@@ -103,6 +100,12 @@ function TasksPage() {
         </Button>
       </Box>
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -113,7 +116,7 @@ function TasksPage() {
               <TableCell>Status</TableCell>
               <TableCell>RAG</TableCell>
               <TableCell>Due Date</TableCell>
-              <TableCell>Days Left</TableCell>
+              <TableCell>Days Assigned</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -121,7 +124,7 @@ function TasksPage() {
             {tasks.map((task) => (
               <TableRow key={task.id}>
                 <TableCell>{task.name}</TableCell>
-                <TableCell>{task.projectName}</TableCell>
+                <TableCell>{task.project_name}</TableCell>
                 <TableCell>{task.assignee}</TableCell>
                 <TableCell>
                   <Chip
@@ -144,9 +147,13 @@ function TasksPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  {new Date(task.dueDate).toLocaleDateString()}
+                  {task.due_date
+                    ? new Date(task.due_date).toLocaleDateString()
+                    : '-'}
                 </TableCell>
-                <TableCell>{task.daysLeft}</TableCell>
+                <TableCell>
+                  {task.days_assigned ? `${task.days_assigned} days` : '-'}
+                </TableCell>
                 <TableCell>
                   <Button size="small">Edit</Button>
                 </TableCell>

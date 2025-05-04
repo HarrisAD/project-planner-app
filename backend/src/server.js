@@ -8,6 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Import routes
+const projectRoutes = require('./routes/projects');
+const taskRoutes = require('./routes/tasks');
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -21,6 +25,10 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ message: 'Project Planner API v1' });
 });
+
+// API Routes
+app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -38,12 +46,4 @@ app.listen(PORT, () => {
   console.log(
     `📱 Health check available at http://localhost:${PORT}/api/health`
   );
-});
-// In your backend server.js or routes file
-app.get('/api/projects', (req, res) => {
-  // Temporary test data
-  res.json([
-    { id: 1, name: 'Test Project 1', status: 'active' },
-    { id: 2, name: 'Test Project 2', status: 'planning' },
-  ]);
 });
