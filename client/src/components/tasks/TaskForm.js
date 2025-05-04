@@ -1,3 +1,4 @@
+// client/src/components/tasks/TaskForm.js
 import React, { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import {
@@ -13,7 +14,7 @@ import {
   InputLabel,
   Select,
 } from '@mui/material';
-import { mockProjectService } from '../../services/mockApi';
+import { projectService } from '../../services/api';
 
 function TaskForm({ open, onClose, onSubmit }) {
   const [projects, setProjects] = useState([]);
@@ -38,20 +39,19 @@ function TaskForm({ open, onClose, onSubmit }) {
 
   useEffect(() => {
     if (open) {
-      mockProjectService.getAll().then((response) => {
+      projectService.getAll().then((response) => {
         setProjects(response.data);
       });
     }
   }, [open]);
 
   const handleFormSubmit = (data) => {
-    // Add project name for display purposes
-    const project = projects.find((p) => p.id === data.projectId);
+    // Convert string values to proper types
     const taskData = {
       ...data,
-      projectName: project?.name || '',
-      daysTaken: 0,
-      daysLeft: data.daysAssigned,
+      projectId: parseInt(data.projectId),
+      daysAssigned: parseInt(data.daysAssigned),
+      rag: parseInt(data.rag),
     };
     onSubmit(taskData);
     reset();
@@ -97,7 +97,7 @@ function TaskForm({ open, onClose, onSubmit }) {
                     <Select {...field} label="Project">
                       {projects.map((project) => (
                         <MenuItem key={project.id} value={project.id}>
-                          {project.name}
+                          {project.name || project.workstream}
                         </MenuItem>
                       ))}
                     </Select>
