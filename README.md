@@ -5,7 +5,7 @@ A web-based project planning application to replace Excel-based tracking systems
 ## Current Status
 
 **Last Updated**: May 2025  
-**Version**: 0.2.0
+**Version**: 0.3.0 ✅
 
 ## Tech Stack
 
@@ -49,14 +49,20 @@ project-planner-app/
 │   │   ├── services/      # API services
 │   │   └── App.js         # Main app component
 │   └── package.json
-├── backend/               # Node.js/Express API (in progress)
-├── database/             # Migrations and seeds (planned)
+├── backend/               # Node.js/Express API
+│   ├── src/
+│   │   ├── routes/        # API routes
+│   │   ├── migrations/    # Database migrations
+│   │   ├── db.js          # Database connection
+│   │   └── server.js      # Express server
+│   └── package.json
+├── database/             # Migrations and seeds
 └── docs/                 # Documentation
 ```
 
 ## Implementation Progress
 
-### Phase 1: Basic Setup & Infrastructure ✅ (90% Complete)
+### Phase 1: Basic Setup & Infrastructure ✅ (100% Complete)
 
 - [x] Project initialization
 - [x] Database setup
@@ -65,32 +71,35 @@ project-planner-app/
 - [x] Component structure (Dashboard, Projects, Tasks)
 - [x] Project and Task forms
 - [x] Mock data services
-- [ ] Frontend-backend connection (Next Step)
+- [x] Frontend-backend connection
+- [x] Basic CRUD operations for projects and tasks
 
-### Phase 2: Authentication System (Next Phase)
+### Phase 2: Core Feature Development (Current Phase)
+
+- [ ] Edit/Delete functionality for projects and tasks
+- [ ] Project progress calculation based on task completion
+- [ ] Task time tracking (days taken vs assigned)
+- [ ] RAG status management
+- [ ] Resource allocation views
+- [ ] Task filtering and search
+
+### Phase 3: Advanced Features (Planned)
+
+- [ ] Dashboard enhancements with charts
+- [ ] Project timeline/Gantt view
+- [ ] Task dependencies
+- [ ] Excel import/export functionality
+- [ ] Email notifications
+- [ ] Reporting and analytics
+
+### Phase 4: Authentication & Multi-User Support (Future)
 
 - [ ] User model and migration
 - [ ] Registration endpoint
 - [ ] Login endpoint with JWT
 - [ ] Protected route middleware
-- [ ] Frontend login form
-- [ ] Authentication context
-
-### Phase 3: Core Data Models (Planned)
-
-- [ ] Project model
-- [ ] Task model
-- [ ] Task Assignment model
-- [ ] API endpoints for CRUD
-- [ ] Test data seeding
-
-### Phase 4: Effort Tracker (Planned)
-
-- [ ] User tasks endpoint
-- [ ] Time entry submission
-- [ ] Task list component
-- [ ] Time entry form
-- [ ] Data refresh functionality
+- [ ] Frontend authentication
+- [ ] Role-based access control
 
 ## Current Features
 
@@ -100,138 +109,75 @@ project-planner-app/
 
    - Project summary cards
    - Metrics display (total projects, active projects, at risk)
-   - Project overview table
+   - Project overview table with real data
 
 2. **Projects Module**
 
    - Project list with RAG status
    - Create new project form
-   - Project data display
+   - Project data display from database
+   - Real-time updates
 
 3. **Tasks Module**
 
    - Task list with status indicators
    - Create new task form
    - Task assignment to projects
+   - Due date tracking
 
-4. **UI/UX**
-   - Responsive Material-UI components
-   - Navigation between pages
-   - Form validation
-   - Loading states
+4. **Backend API**
 
-### Mock Data Structure
+   - Projects CRUD endpoints
+   - Tasks CRUD endpoints
+   - Database integration with PostgreSQL
+   - Error handling middleware
 
-Currently using mock services that simulate:
+5. **Frontend-Backend Integration**
+   - Real API calls replacing mock services
+   - Error handling and loading states
+   - Data persistence in PostgreSQL
 
-- Projects with RAG status, progress tracking
-- Tasks with assignments and due dates
-- Dashboard metrics calculations
+## Next Development Tasks
 
-## Next Steps
+### Priority 1: Complete CRUD Operations
 
-### Step 1: Connect Frontend to Backend
+1. Add edit functionality for projects
+2. Add edit functionality for tasks
+3. Add delete functionality with confirmations
+4. Add success/error notifications
 
-Replace mock services with actual API calls:
+### Priority 2: Core Business Features
 
-```javascript
-// Update src/services/api.js
-import axios from 'axios';
+1. Implement automatic project progress calculation
+2. Add task time tracking
+3. Create resource allocation views
+4. Add RAG status update functionality
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+### Priority 3: Enhanced User Experience
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+1. Add search and filtering for projects/tasks
+2. Implement sorting on tables
+3. Add pagination for large datasets
+4. Create detailed project/task views
 
-// Add error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error);
-    return Promise.reject(error);
-  }
-);
+### Priority 4: Data Management
 
-export const projectService = {
-  getAll: () => api.get('/projects'),
-  create: (data) => api.post('/projects', data),
-  // ... other endpoints
-};
+1. Add Excel import functionality
+2. Add Excel export functionality
+3. Create data validation rules
+4. Implement audit logging
 
-export const taskService = {
-  getAll: () => api.get('/tasks'),
-  create: (data) => api.post('/tasks', data),
-  // ... other endpoints
-};
-
-export default api;
-```
-
-### Step 2: Create Backend API Endpoints
-
-Implement the following endpoints in the backend:
-
-```javascript
-// backend/src/routes/projects.js
-router.get('/', async (req, res) => {
-  // Return all projects
-});
-
-router.post('/', async (req, res) => {
-  // Create new project
-});
-
-// backend/src/routes/tasks.js
-router.get('/', async (req, res) => {
-  // Return all tasks
-});
-
-router.post('/', async (req, res) => {
-  // Create new task
-});
-```
-
-### Step 3: Update Components to Use Real API
-
-Update React components to use the API service instead of mock data:
-
-```javascript
-// src/pages/ProjectsPage.js
-import { projectService } from '../services/api';
-
-useEffect(() => {
-  projectService
-    .getAll()
-    .then((response) => setProjects(response.data))
-    .catch((error) => setError(error.message));
-}, []);
-```
-
-## Database Schema (Planned)
+## Database Schema
 
 ```sql
--- Users table
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) DEFAULT 'user',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Projects table
 CREATE TABLE projects (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    company VARCHAR(255),
-    status VARCHAR(50),
-    rag INTEGER CHECK (rag IN (1, 2, 3)),
+    company_name VARCHAR(255) NOT NULL,
+    workstream VARCHAR(255),
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'Planning',
+    rag INTEGER DEFAULT 1 CHECK (rag IN (1, 2, 3)),
     progress DECIMAL(5,2) DEFAULT 0,
     start_date DATE,
     end_date DATE,
@@ -242,19 +188,48 @@ CREATE TABLE projects (
 -- Tasks table
 CREATE TABLE tasks (
     id SERIAL PRIMARY KEY,
-    project_id INTEGER REFERENCES projects(id),
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
     assignee VARCHAR(255),
-    status VARCHAR(50),
-    rag INTEGER CHECK (rag IN (1, 2, 3)),
+    status VARCHAR(50) DEFAULT 'Not Started',
+    rag INTEGER DEFAULT 1 CHECK (rag IN (1, 2, 3)),
     due_date DATE,
     days_assigned INTEGER,
     days_taken INTEGER DEFAULT 0,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users table (future implementation)
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    password_hash VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+## API Endpoints
+
+### Projects
+
+- `GET /api/projects` - Get all projects
+- `GET /api/projects/:id` - Get single project
+- `POST /api/projects` - Create project
+- `PUT /api/projects/:id` - Update project (coming soon)
+- `DELETE /api/projects/:id` - Delete project (coming soon)
+
+### Tasks
+
+- `GET /api/tasks` - Get all tasks
+- `GET /api/tasks/project/:projectId` - Get tasks by project
+- `POST /api/tasks` - Create task
+- `PUT /api/tasks/:id` - Update task (coming soon)
+- `DELETE /api/tasks/:id` - Delete task (coming soon)
 
 ## Development Workflow
 
@@ -278,88 +253,107 @@ npm start
 - Frontend: http://localhost:3000
 - Health Check: http://localhost:3001/api/health
 
-## Testing Strategy (To Be Implemented)
-
-### Unit Testing
-
-- Component testing with React Testing Library
-- API endpoint testing with Jest
-- Service layer testing
-
-### Integration Testing
-
-- Frontend-backend integration tests
-- Database operation tests
-
-### E2E Testing
-
-- User flow testing with Cypress
-- Critical path testing
-
-## Deployment (Planned)
-
-- Docker containerization
-- CI/CD with GitHub Actions
-- Environment configuration
-- Production deployment strategy
-
-## Security Considerations (Planned)
-
-1. **Authentication & Authorization**
-
-   - JWT implementation
-   - Role-based access control
-   - Secure password storage
-
-2. **API Security**
-
-   - CORS configuration
-   - Rate limiting
-   - Input validation
-
-3. **Environment Security**
-   - Environment variables for secrets
-   - Secure production configuration
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
 ## Known Issues
 
-- Mock data is currently used instead of real backend
-- Authentication system not yet implemented
-- No data persistence between sessions
+- Edit/Delete functionality not yet implemented
+- No user authentication (single-user mode)
+- Manual project progress updates only
+- No data validation on some fields
+- No Excel import/export functionality
 
-## Roadmap
+## Immediate Next Steps
 
-### Version 0.3.0 (Current Sprint)
+1. **Implement Edit Functionality**
 
-- [ ] Connect frontend to backend
-- [ ] Implement basic authentication
-- [ ] Database migrations
+   ```javascript
+   // Add to project routes
+   router.put('/:id', async (req, res) => {
+     // Update project logic
+   });
+   ```
+
+2. **Implement Delete Functionality**
+
+   ```javascript
+   // Add to project routes
+   router.delete('/:id', async (req, res) => {
+     // Delete project logic
+   });
+   ```
+
+3. **Add Progress Calculation**
+   ```sql
+   -- Update project progress based on completed tasks
+   UPDATE projects p
+   SET progress = (
+     SELECT COUNT(*) FILTER (WHERE status = 'Completed') * 100.0 / COUNT(*)
+     FROM tasks
+     WHERE project_id = p.id
+   )
+   WHERE id = ?;
+   ```
+
+## Future Roadmap
 
 ### Version 0.4.0
 
-- [ ] Effort tracking functionality
-- [ ] Time entry forms
-- [ ] Resource allocation views
+- Complete CRUD operations
+- Automatic progress calculation
+- Task time tracking
+- Enhanced filtering and search
 
 ### Version 0.5.0
 
-- [ ] Real-time updates
-- [ ] Email notifications
-- [ ] Advanced reporting
+- Excel import/export
+- Advanced reporting
+- Timeline/Gantt view
+- Email notifications
+
+### Version 0.6.0
+
+- User authentication
+- Role-based access control
+- Multi-user support
+- Audit logging
 
 ### Version 1.0.0
 
-- [ ] Complete feature parity with Excel system
-- [ ] Performance optimization
-- [ ] Production deployment
+- Complete feature parity with Excel system
+- Performance optimization
+- Production deployment
+- User documentation
+
+## Contributing
+
+1. Create a feature branch from `development`
+2. Make your changes
+3. Submit a pull request to `development`
+4. After review, merge to `main`
+
+## Deployment Notes
+
+For single-user development:
+
+- No authentication required
+- Focus on feature completion
+- Local deployment only
+
+For future multi-user deployment:
+
+- Implement authentication first
+- Add environment-specific configs
+- Set up CI/CD pipeline
+- Configure production database
+
+## Testing Strategy
+
+Current focus: Manual testing
+Future implementation:
+
+- Unit tests for components
+- API endpoint tests
+- Integration tests
+- E2E tests with Cypress
 
 ## License
 
@@ -370,11 +364,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 For support, please:
 
 1. Check the troubleshooting section
-2. Search existing issues
-3. Create a new issue with detailed information
+2. Review known issues
+3. Create a GitHub issue
 
 ## Acknowledgments
 
 - Original Excel system design
 - Material-UI component library
 - React community
+- PostgreSQL community
