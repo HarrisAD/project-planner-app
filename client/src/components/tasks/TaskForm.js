@@ -1,4 +1,3 @@
-// client/src/components/tasks/TaskForm.js
 import React, { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import {
@@ -16,7 +15,7 @@ import {
 } from '@mui/material';
 import { projectService } from '../../services/api';
 
-function TaskForm({ open, onClose, onSubmit }) {
+function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   const [projects, setProjects] = useState([]);
 
   const {
@@ -33,6 +32,7 @@ function TaskForm({ open, onClose, onSubmit }) {
       rag: 1,
       dueDate: '',
       daysAssigned: '',
+      daysTaken: 0,
       description: '',
     },
   });
@@ -45,12 +45,32 @@ function TaskForm({ open, onClose, onSubmit }) {
     }
   }, [open]);
 
+  // Reset form when initialData changes (when editing)
+  useEffect(() => {
+    if (initialData) {
+      reset({
+        name: initialData.name || '',
+        projectId: initialData.project_id || '',
+        assignee: initialData.assignee || '',
+        status: initialData.status || 'Not Started',
+        rag: initialData.rag || 1,
+        dueDate: initialData.due_date
+          ? initialData.due_date.substring(0, 10)
+          : '',
+        daysAssigned: initialData.days_assigned || '',
+        daysTaken: initialData.days_taken || 0,
+        description: initialData.description || '',
+      });
+    }
+  }, [initialData, reset]);
+
   const handleFormSubmit = (data) => {
     // Convert string values to proper types
     const taskData = {
       ...data,
       projectId: parseInt(data.projectId),
       daysAssigned: parseInt(data.daysAssigned),
+      daysTaken: parseInt(data.daysTaken || 0),
       rag: parseInt(data.rag),
     };
     onSubmit(taskData);
@@ -66,7 +86,7 @@ function TaskForm({ open, onClose, onSubmit }) {
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
-        <DialogTitle>Create New Task</DialogTitle>
+        <DialogTitle>{isEdit ? 'Edit Task' : 'Create New Task'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -177,7 +197,7 @@ function TaskForm({ open, onClose, onSubmit }) {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <Controller
                 name="daysAssigned"
                 control={control}
@@ -197,6 +217,25 @@ function TaskForm({ open, onClose, onSubmit }) {
                 )}
               />
             </Grid>
+
+            {isEdit && (
+              <Grid item xs={12} sm={6}>
+                <Controller
+                  name="daysTaken"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Days Taken"
+                      type="number"
+                      fullWidth
+                      error={!!errors.daysTaken}
+                      helperText={errors.daysTaken?.message}
+                    />
+                  )}
+                />
+              </Grid>
+            )}
 
             <Grid item xs={12}>
               <Controller
@@ -218,7 +257,7 @@ function TaskForm({ open, onClose, onSubmit }) {
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
           <Button type="submit" variant="contained" color="primary">
-            Create Task
+            {isEdit ? 'Update Task' : 'Create Task'}
           </Button>
         </DialogActions>
       </form>
