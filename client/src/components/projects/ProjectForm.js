@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import {
   Dialog,
@@ -14,7 +14,7 @@ import {
   Select,
 } from '@mui/material';
 
-function ProjectForm({ open, onClose, onSubmit }) {
+function ProjectForm({ open, onClose, onSubmit, initialData, isEdit }) {
   const {
     control,
     handleSubmit,
@@ -32,6 +32,25 @@ function ProjectForm({ open, onClose, onSubmit }) {
     },
   });
 
+  // Reset form when initialData changes (when editing)
+  useEffect(() => {
+    if (initialData) {
+      reset({
+        name: initialData.name || '',
+        company: initialData.company || '',
+        description: initialData.description || '',
+        status: initialData.status || 'Planning',
+        rag: initialData.rag || 1,
+        startDate: initialData.start_date
+          ? initialData.start_date.substring(0, 10)
+          : '',
+        endDate: initialData.end_date
+          ? initialData.end_date.substring(0, 10)
+          : '',
+      });
+    }
+  }, [initialData, reset]);
+
   const handleFormSubmit = (data) => {
     onSubmit(data);
     reset();
@@ -46,7 +65,9 @@ function ProjectForm({ open, onClose, onSubmit }) {
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
-        <DialogTitle>Create New Project</DialogTitle>
+        <DialogTitle>
+          {isEdit ? 'Edit Project' : 'Create New Project'}
+        </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -176,7 +197,7 @@ function ProjectForm({ open, onClose, onSubmit }) {
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
           <Button type="submit" variant="contained" color="primary">
-            Create Project
+            {isEdit ? 'Update Project' : 'Create Project'}
           </Button>
         </DialogActions>
       </form>
