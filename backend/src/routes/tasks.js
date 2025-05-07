@@ -69,14 +69,31 @@ router.post('/', async (req, res) => {
       assignee,
       status,
       rag,
+      startDate,
       dueDate,
       daysAssigned,
       description,
     } = req.body;
 
+    // Debug log
+    console.log(
+      'Task creation data:',
+      JSON.stringify({
+        name,
+        projectId,
+        assignee,
+        status,
+        rag,
+        startDate,
+        dueDate,
+        daysAssigned,
+        description,
+      })
+    );
+
     const taskResult = await client.query(
-      `INSERT INTO tasks (project_id, name, assignee, status, rag, due_date, days_assigned, description) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+      `INSERT INTO tasks (project_id, name, assignee, status, rag, start_date, due_date, days_assigned, description) 
+         VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::DATE, NULLIF($7, '')::DATE, $8, $9) 
          RETURNING *`,
       [
         projectId,
@@ -84,6 +101,7 @@ router.post('/', async (req, res) => {
         assignee,
         status || 'Not Started',
         rag || 1,
+        startDate,
         dueDate,
         daysAssigned,
         description,
@@ -99,13 +117,11 @@ router.post('/', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Error creating task:', err);
-    res.status(500).json({ error: 'Failed to create task' });
+    res.status(500).json({ error: 'Failed to create task: ' + err.message });
   } finally {
     client.release();
   }
-});
-
-// Update a task
+}); // Update a task
 router.put('/:id', async (req, res) => {
   const client = await db.pool.connect();
 
@@ -119,11 +135,30 @@ router.put('/:id', async (req, res) => {
       assignee,
       status,
       rag,
+      startDate,
       dueDate,
       daysAssigned,
       description,
       daysTaken,
     } = req.body;
+
+    // Debug log
+    console.log(
+      'Task update data:',
+      JSON.stringify({
+        id,
+        name,
+        projectId,
+        assignee,
+        status,
+        rag,
+        startDate,
+        dueDate,
+        daysAssigned,
+        description,
+        daysTaken,
+      })
+    );
 
     // Check if task exists and get original project ID
     const checkTask = await client.query(
@@ -137,27 +172,29 @@ router.put('/:id', async (req, res) => {
 
     const originalProjectId = checkTask.rows[0].project_id;
 
-    // Update the task
+    // Update the task - NOTE: using NULLIF to handle empty strings as NULL
     const result = await client.query(
       `UPDATE tasks 
-       SET project_id = $1, 
-           name = $2, 
-           assignee = $3, 
-           status = $4, 
-           rag = $5, 
-           due_date = $6, 
-           days_assigned = $7,
-           days_taken = $8,
-           description = $9,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10
-       RETURNING *`,
+         SET project_id = $1, 
+             name = $2, 
+             assignee = $3, 
+             status = $4, 
+             rag = $5, 
+             start_date = NULLIF($6, '')::DATE,
+             due_date = NULLIF($7, '')::DATE, 
+             days_assigned = $8,
+             days_taken = $9,
+             description = $10,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $11
+         RETURNING *`,
       [
         projectId,
         name,
         assignee,
         status,
         rag,
+        startDate,
         dueDate,
         daysAssigned,
         daysTaken || 0,
@@ -192,7 +229,7 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Error updating task:', err);
-    res.status(500).json({ error: 'Failed to update task' });
+    res.status(500).json({ error: 'Failed to update task: ' + err.message });
   } finally {
     client.release();
   }

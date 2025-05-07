@@ -115,6 +115,7 @@ function TasksPage() {
 
   const handleCreateTask = async (taskData) => {
     try {
+      console.log('Creating task with data:', taskData);
       await taskService.create(taskData);
       fetchTasks(); // Refresh the list
       setOpenForm(false);
@@ -130,6 +131,7 @@ function TasksPage() {
     try {
       if (!currentTask) return;
 
+      console.log('Updating task with data:', taskData);
       await taskService.update(currentTask.id, taskData);
       fetchTasks(); // Refresh the list
       setOpenForm(false);
@@ -142,7 +144,6 @@ function TasksPage() {
       showNotification('Failed to update task', 'error');
     }
   };
-
   const handleOpenCreateForm = () => {
     setCurrentTask(null);
     setIsEditing(false);
@@ -196,6 +197,8 @@ function TasksPage() {
   };
 
   // Quick update function that automatically updates RAG status and task status
+  // In TasksPage.js, find the handleQuickUpdateDaysTaken function and update it:
+
   const handleQuickUpdateDaysTaken = async (task, increment) => {
     try {
       // Get the current task from state first
@@ -232,6 +235,7 @@ function TasksPage() {
         assignee: currentTask.assignee,
         status: newStatus, // Use the calculated status
         rag: ragResult.ragStatus,
+        startDate: currentTask.start_date, // Make sure to include the start date
         dueDate: currentTask.due_date,
         daysAssigned: currentTask.days_assigned,
         daysTaken: newDaysTaken,

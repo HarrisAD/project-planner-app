@@ -7,6 +7,7 @@ import TasksPage from './pages/TasksPage';
 import ApiTestPage from './pages/ApiTestPage';
 import { NotificationProvider } from './context/NotificationContext';
 import AssigneesPage from './pages/AssigneesPage';
+import ResourcesPage from './pages/ResourcesPage';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <Route path="tasks" element={<TasksPage />} />
             <Route path="assignees" element={<AssigneesPage />} />
             <Route path="test" element={<ApiTestPage />} />
+            <Route path="resources" element={<ResourcesPage />} />
           </Route>
         </Routes>
       </Router>

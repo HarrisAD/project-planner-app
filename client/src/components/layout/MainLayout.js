@@ -29,6 +29,9 @@ function MainLayout() {
           <Button color="inherit" component={Link} to="/assignees">
             Assignees
           </Button>
+          <Button color="inherit" component={Link} to="/resources">
+            Resources
+          </Button>
         </Toolbar>
       </AppBar>
 
