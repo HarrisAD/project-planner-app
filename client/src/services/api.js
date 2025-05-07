@@ -20,8 +20,32 @@ export const projectService = {
 export const taskService = {
   getAll: () => api.get('/tasks'),
   create: (data) => api.post('/tasks', data),
-  update: (id, data) => api.put(`/tasks/${id}`, data), // Add this line
-  delete: (id) => api.delete(`/tasks/${id}`), // Add this line
+  update: (id, data) => api.put(`/tasks/${id}`, data),
+  delete: (id) => api.delete(`/tasks/${id}`),
+};
+
+export const assigneeService = {
+  getAll: () => api.get('/assignees'),
+  getById: (id) => api.get(`/assignees/${id}`), // Add this line
+  create: (data) => api.post('/assignees', data),
+  update: (id, data) => api.put(`/assignees/${id}`, data),
+  delete: (id) => api.delete(`/assignees/${id}`),
+  getHolidays: (id) => api.get(`/assignees/${id}/holidays`),
+  addHoliday: (id, data) => api.post(`/assignees/${id}/holidays`, data),
+  deleteHoliday: (holidayId) => api.delete(`/assignees/holidays/${holidayId}`),
+  addHolidayRange: (id, data) =>
+    api.post(`/assignees/${id}/holiday-range`, data),
+};
+
+export const holidayService = {
+  // Public holidays
+  getAllPublic: () => api.get('/holidays/public'),
+  createPublic: (data) => api.post('/holidays/public', data),
+  deletePublic: (id) => api.delete(`/holidays/public/${id}`),
+
+  // For existing assigneeService, add this method:
+  addHolidayRange: (assigneeId, data) =>
+    api.post(`/assignees/${assigneeId}/holiday-range`, data),
 };
 
 export default api;
