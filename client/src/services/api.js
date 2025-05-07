@@ -48,4 +48,12 @@ export const holidayService = {
     api.post(`/assignees/${assigneeId}/holiday-range`, data),
 };
 
+export const resourceAllocationService = {
+  getAll: (params) => api.get('/resource-allocation', { params }),
+  getCalendarView: (params) =>
+    api.get('/resource-allocation/calendar', { params }),
+  getWorkloadSummary: (params) =>
+    api.get('/resource-allocation/workload-summary', { params }),
+};
+
 export default api;

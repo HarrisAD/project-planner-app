@@ -1,5 +1,3 @@
-// client/src/components/tasks/TaskForm.js
-
 import React, { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import {
@@ -20,18 +18,18 @@ import {
   Chip,
   FormHelperText,
 } from '@mui/material';
-import { projectService, assigneeService } from '../../services/api'; // Add assigneeService import
+import { projectService, assigneeService } from '../../services/api';
 import { calculateTaskRagStatus } from '../../utils/dateUtils';
 
 function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   const [projects, setProjects] = useState([]);
-  const [assignees, setAssignees] = useState([]); // New state for assignees
+  const [assignees, setAssignees] = useState([]);
   const [ragInfo, setRagInfo] = useState({
     ragStatus: 1,
     buffer: 0,
     daysRemaining: 0,
   });
-  const [loading, setLoading] = useState(false); // Track loading state
+  const [loading, setLoading] = useState(false);
 
   const {
     control,
@@ -44,9 +42,10 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
     defaultValues: {
       name: '',
       projectId: '',
-      assignee: '', // This will now be the assignee ID
+      assignee: '',
       status: 'Not Started',
       rag: 1,
+      startDate: '', // Initialize start date
       dueDate: '',
       daysAssigned: '',
       daysTaken: 0,
@@ -58,6 +57,7 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   const daysAssigned = watch('daysAssigned');
   const daysTaken = watch('daysTaken');
   const dueDate = watch('dueDate');
+  const startDate = watch('startDate'); // Watch start date too
 
   // Fetch assignees when form opens
   useEffect(() => {
@@ -105,55 +105,39 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
     }
   }, [daysAssigned, daysTaken, dueDate]);
 
-  // Update status based on days taken and assigned
-  useEffect(() => {
-    if (daysAssigned && daysTaken !== undefined) {
-      const formattedDaysAssigned = parseInt(daysAssigned) || 0;
-      const formattedDaysTaken = parseInt(daysTaken) || 0;
-
-      // Only auto-update status in these specific cases
-      if (
-        formattedDaysTaken === 0 ||
-        (formattedDaysTaken > 0 &&
-          formattedDaysTaken < formattedDaysAssigned) ||
-        formattedDaysTaken >= formattedDaysAssigned
-      ) {
-        // Determine the new status based on days taken vs assigned
-        let newStatus = 'Not Started';
-        if (formattedDaysTaken === 0) {
-          newStatus = 'Not Started';
-        } else if (formattedDaysTaken < formattedDaysAssigned) {
-          newStatus = 'In Progress';
-        } else {
-          newStatus = 'Completed';
-        }
-
-        // Use setValue from react-hook-form to update the status field
-        setValue('status', newStatus);
-      }
-    }
-  }, [daysAssigned, daysTaken, setValue]);
-
   // Reset form when initialData changes (when editing)
   useEffect(() => {
     if (initialData) {
+      // Create function to properly format date without timezone issues
+      const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+
+        // Parse the date and adjust for timezone
+        const date = new Date(dateString);
+        // Get year, month, day and properly format with leading zeros
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        // Format as YYYY-MM-DD
+        return `${year}-${month}-${day}`;
+      };
+
       reset({
         name: initialData.name || '',
         projectId: initialData.project_id || '',
-        // Find the assignee ID that matches the name from initialData
-        assignee: initialData.assignee || '', // We'll handle this separately after assignees load
+        assignee: initialData.assignee || '',
         status: initialData.status || 'Not Started',
         rag: initialData.rag || 1,
-        dueDate: initialData.due_date
-          ? initialData.due_date.substring(0, 10)
-          : '',
+        // Use our safe date formatting function
+        startDate: formatDateForInput(initialData.start_date),
+        dueDate: formatDateForInput(initialData.due_date),
         daysAssigned: initialData.days_assigned || '',
         daysTaken: initialData.days_taken || 0,
         description: initialData.description || '',
       });
     }
   }, [initialData, reset]);
-
   // Update assignee field when editing and assignees are loaded
   useEffect(() => {
     if (initialData && initialData.assignee && assignees.length > 0) {
@@ -176,6 +160,10 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
       daysTaken: parseInt(data.daysTaken || 0),
       rag: ragInfo.ragStatus, // Use calculated RAG status
     };
+
+    // Log the data being submitted
+    console.log('Submitting task data:', taskData);
+
     onSubmit(taskData);
     reset();
     onClose();
@@ -211,6 +199,14 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
         return 'Unknown';
     }
   };
+
+  // Set default start date to today if not provided and creating a new task
+  useEffect(() => {
+    if (!isEdit && open && !startDate) {
+      const today = new Date().toISOString().split('T')[0];
+      setValue('startDate', today);
+    }
+  }, [isEdit, open, startDate, setValue]);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -251,7 +247,7 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                       {...field}
                       label="Project"
                       displayEmpty
-                      sx={{ minHeight: '56px' }} // Ensure minimum height
+                      sx={{ minHeight: '56px' }}
                     >
                       {projects.map((project) => (
                         <MenuItem key={project.id} value={project.id}>
@@ -284,7 +280,7 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                       {...field}
                       label="Assignee"
                       displayEmpty
-                      sx={{ minHeight: '56px' }} // Ensure minimum height
+                      sx={{ minHeight: '56px' }}
                       disabled={loading || assignees.length === 0}
                     >
                       {assignees.map((assignee) => (
@@ -319,6 +315,26 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                       <MenuItem value="On Hold">On Hold</MenuItem>
                     </Select>
                   </FormControl>
+                )}
+              />
+            </Grid>
+
+            {/* Start Date Field */}
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="startDate"
+                control={control}
+                rules={{ required: 'Start date is required' }}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Start Date"
+                    type="date"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    error={!!errors.startDate}
+                    helperText={errors.startDate?.message}
+                  />
                 )}
               />
             </Grid>

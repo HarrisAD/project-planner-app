@@ -1,6 +1,13 @@
 const db = require('./db');
 const fs = require('fs');
 const path = require('path');
+const migrations = [
+  '001_initial_schema.sql',
+  '002_add_last_updated_days.sql',
+  '003_create_assignees_tables.sql',
+  '004_create_public_holidays.sql',
+  '005_resource_allocation_enhancements.sql', // Add this line
+];
 
 async function runMigration() {
   try {
