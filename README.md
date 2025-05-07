@@ -5,7 +5,7 @@ A comprehensive web-based project planning application that replaces Excel-based
 ## Current Status
 
 **Last Updated**: May 2025  
-**Version**: 0.7.0 (in development)
+**Version**: 0.8.0
 
 ## Tech Stack
 
@@ -47,6 +47,7 @@ project-planner-app/
 │   │   │   ├── holidays/  # Holiday management components
 │   │   │   ├── layout/    # Layout components
 │   │   │   ├── projects/  # Project-related components
+│   │   │   ├── resources/ # Resource allocation components
 │   │   │   └── tasks/     # Task-related components
 │   │   ├── context/       # React contexts
 │   │   ├── pages/         # Page components
@@ -87,7 +88,7 @@ project-planner-app/
 - [x] Cross-project updates for task reassignment
 - [x] Form validation and error handling
 
-### Phase 3: Advanced Features ✅ (80% Complete)
+### Phase 3: Advanced Features ✅ (100% Complete)
 
 - [x] Task time tracking (days taken vs assigned)
 - [x] Automatic RAG status calculation based on time tracking
@@ -98,18 +99,32 @@ project-planner-app/
 - [x] Holiday management (individual days and date ranges)
 - [x] Public holidays support with country codes
 - [x] Enhanced risk assessment accounting for holidays
-- [ ] Resource allocation views
-- [ ] Task filtering and search
-- [ ] Dashboard enhancements with charts
-- [ ] Project timeline/Gantt view
 
-### Phase 4: Data Management & Authentication (Planned)
+### Phase 4: Resource Planning ✅ (100% Complete)
 
+- [x] Resource allocation views
+- [x] Team member workload analysis
+- [x] Capacity planning tools
+- [x] Resource calendar view
+- [x] Intelligent allocation algorithms
+- [x] Over/under allocation detection
+
+### Phase 5: Data Management & Filtering ✅ (In Progress)
+
+- [x] Advanced task filtering by multiple criteria
+- [x] Resource filtering and grouping
+- [x] Enhanced UI for filter controls
 - [ ] Excel import/export functionality
 - [ ] Email notifications
 - [ ] Reporting and analytics
+
+### Phase 6: Authentication & Access Control (Planned)
+
 - [ ] User model and authentication
 - [ ] Role-based access control
+- [ ] Team management
+- [ ] User preferences
+- [ ] Activity logging
 
 ## Core Features
 
@@ -127,6 +142,7 @@ project-planner-app/
 - Time tracking with days assigned vs. days taken
 - Automatic status transitions based on progress
 - Quick time tracking updates with +/- buttons
+- Comprehensive task filtering by multiple criteria
 
 ### 3. Assignee Management
 
@@ -150,6 +166,15 @@ project-planner-app/
   - Assignee's specific working pattern (days per week)
   - Individual and public holidays
   - Time since last update (for "On Hold" detection)
+
+### 6. Resource Allocation
+
+- Comprehensive resource allocation dashboard
+- Workload analysis by team member
+- Allocation status indicators (Over/Under/Balanced)
+- Calendar view for visualizing assignments
+- Resource capacity planning
+- Pro-rated allocation calculation for accurate forecasting
 
 ## Task Status Automation
 
@@ -203,6 +228,38 @@ The application implements a comprehensive time tracking system across multiple 
 - Automatic status transitions based on time tracking data
 - Visual progress indicators showing time usage
 
+## Resource Allocation System
+
+The application provides intelligent resource allocation management:
+
+### Resource Summary
+
+- Overview of team member allocations for selected time periods
+- Calculation of total capacity based on working days per week
+- Detection of overallocated team members
+- Visual allocation indicators with RAG status
+
+### Allocation Details
+
+- Breakdown of allocations by project and task
+- Time-based allocation analysis
+- Remaining days calculation
+- Intelligent RAG status for allocation health
+
+### Calendar View
+
+- Visual timeline of team assignments
+- Resource allocation by date
+- Filtering by team member and project
+- Date range selection for focused views
+
+### Workload Analysis
+
+- Team utilization metrics
+- Capacity vs allocation comparisons
+- Recommendations for workload balancing
+- Team-wide allocation metrics
+
 ## Database Schema
 
 ```sql
@@ -230,6 +287,7 @@ CREATE TABLE tasks (
     status VARCHAR(50) DEFAULT 'Not Started',
     rag INTEGER DEFAULT 1 CHECK (rag IN (1, 2, 3)),
     due_date DATE,
+    start_date DATE,
     days_assigned INTEGER,
     days_taken INTEGER DEFAULT 0,
     description TEXT,
@@ -303,6 +361,12 @@ CREATE TABLE public_holidays (
 - `POST /api/holidays/public` - Create public holiday
 - `DELETE /api/holidays/public/:id` - Delete public holiday
 
+### Resource Allocation
+
+- `GET /api/resource-allocation` - Get detailed resource allocation
+- `GET /api/resource-allocation/calendar` - Get calendar view data
+- `GET /api/resource-allocation/workload-summary` - Get workload summary
+
 ## Running the Application
 
 ### Backend
@@ -329,33 +393,33 @@ npm start
 
 ## Next Development Steps
 
-### Priority 1: Resource Allocation Views
+### Priority 1: Enhanced Reporting
 
-1. Create assignee-based workload analysis
-2. Implement calendar view of resource allocation
-3. Add visual indicators for over/under allocation
-4. Create team capacity dashboard
-
-### Priority 2: Search and Filtering
-
-1. Add search functionality for projects and tasks
-2. Implement filtering by status, RAG, assignee, etc.
-3. Add sorting options for tables
-4. Create saved filters/views
-
-### Priority 3: Reporting and Visualization
-
-1. Add dashboard charts for project metrics
+1. Implement dashboard charts for project metrics
 2. Create timeline/Gantt view for projects
 3. Generate PDF reports for projects
-4. Implement team performance analytics
+4. Add project and resource export functionality
 
-### Priority 4: Data Management
+### Priority 2: Excel Integration
 
-1. Add Excel import functionality
-2. Add Excel export functionality
-3. Create data validation rules
-4. Implement audit logging
+1. Add Excel import functionality for batch task creation
+2. Add Excel export functionality for reports
+3. Create data validation rules for imports
+4. Implement data mapping for various Excel formats
+
+### Priority 3: Task Dependencies
+
+1. Add ability to create task dependencies
+2. Visualize task dependencies in a network graph
+3. Automatically update dependent task dates
+4. Critical path analysis
+
+### Priority 4: Authentication
+
+1. Implement user authentication
+2. Add role-based access control
+3. Create team management features
+4. Add project permission settings
 
 ## License
 
