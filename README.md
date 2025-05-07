@@ -1,11 +1,11 @@
 # Project Planner Web Application
 
-A web-based project planning application to replace Excel-based tracking systems. This application converts an Excel-based project planning system into a modern web application.
+A comprehensive web-based project planning application that replaces Excel-based tracking systems with a modern, interactive web application focused on accurate resource allocation and time tracking.
 
 ## Current Status
 
 **Last Updated**: May 2025  
-**Version**: 0.5.0 (in development)
+**Version**: 0.7.0 (in development)
 
 ## Tech Stack
 
@@ -42,13 +42,16 @@ project-planner-app/
 │   ├── public/
 │   ├── src/
 │   │   ├── components/    # React components
+│   │   │   ├── assignees/ # Assignee management components
 │   │   │   ├── common/    # Common UI components
+│   │   │   ├── holidays/  # Holiday management components
 │   │   │   ├── layout/    # Layout components
 │   │   │   ├── projects/  # Project-related components
 │   │   │   └── tasks/     # Task-related components
 │   │   ├── context/       # React contexts
 │   │   ├── pages/         # Page components
 │   │   ├── services/      # API services
+│   │   ├── utils/         # Utility functions
 │   │   └── App.js         # Main app component
 │   └── package.json
 ├── backend/               # Node.js/Express API
@@ -58,7 +61,6 @@ project-planner-app/
 │   │   ├── db.js          # Database connection
 │   │   └── server.js      # Express server
 │   └── package.json
-├── database/             # Migrations and seeds
 └── docs/                 # Documentation
 ```
 
@@ -85,14 +87,21 @@ project-planner-app/
 - [x] Cross-project updates for task reassignment
 - [x] Form validation and error handling
 
-### Phase 3: Advanced Features (Current Phase)
+### Phase 3: Advanced Features ✅ (80% Complete)
 
-- [ ] Task time tracking (days taken vs assigned)
+- [x] Task time tracking (days taken vs assigned)
+- [x] Automatic RAG status calculation based on time tracking
+- [x] Automatic task status transitions based on time data
+- [x] Last updated tracking for time data
+- [x] "On Hold" detection for stale tasks
+- [x] Assignee management with working days per week
+- [x] Holiday management (individual days and date ranges)
+- [x] Public holidays support with country codes
+- [x] Enhanced risk assessment accounting for holidays
 - [ ] Resource allocation views
 - [ ] Task filtering and search
 - [ ] Dashboard enhancements with charts
 - [ ] Project timeline/Gantt view
-- [ ] Task dependencies
 
 ### Phase 4: Data Management & Authentication (Planned)
 
@@ -102,50 +111,60 @@ project-planner-app/
 - [ ] User model and authentication
 - [ ] Role-based access control
 
-## Current Features
+## Core Features
 
-### Implemented Features
+### 1. Project Management
 
-1. **Dashboard**
+- Create, edit, and delete projects
+- Track project progress automatically based on task completion
+- RAG (Red, Amber, Green) status system for risk assessment
+- Project overview dashboard
 
-   - Project summary cards
-   - Metrics display (total projects, active projects, at risk)
-   - Project overview table with real data
+### 2. Task Management
 
-2. **Projects Module**
+- Create, edit, and delete tasks
+- Assign tasks to team members from a managed assignee list
+- Time tracking with days assigned vs. days taken
+- Automatic status transitions based on progress
+- Quick time tracking updates with +/- buttons
 
-   - Project list with RAG status
-   - Create new project form
-   - Edit existing projects
-   - Delete projects with confirmation
-   - Real-time updates
+### 3. Assignee Management
 
-3. **Tasks Module**
+- Maintain a list of team members with their details
+- Track working days per week for each assignee
+- Record start dates for accurate capacity planning
+- Controlled task assignment using the assignee list
 
-   - Task list with status indicators
-   - Create new task form
-   - Edit existing tasks
-   - Delete tasks with confirmation
-   - Task assignment to projects
+### 4. Time Off & Holiday Management
 
-4. **Automatic Progress Calculation**
+- Record individual holidays for each team member
+- Add holiday ranges for extended leave periods
+- Manage public holidays with country code support
+- Tabbed interface for easy management
 
-   - Projects progress updates automatically based on task completion
-   - Cross-project updates when tasks are reassigned
-   - Visual progress indicators in the UI
+### 5. Intelligent Risk Assessment
 
-5. **User Feedback**
+- Automated RAG status calculation based on:
+  - Days taken vs. days assigned
+  - Business days until due date
+  - Assignee's specific working pattern (days per week)
+  - Individual and public holidays
+  - Time since last update (for "On Hold" detection)
 
-   - Success notifications for operations
-   - Error notifications with descriptive messages
-   - Improved error handling throughout
+## Task Status Automation
 
-6. **Backend API**
+The application implements automatic status updates based on time tracking data, ensuring project status accurately reflects the current state of work:
 
-   - Full CRUD endpoints for projects and tasks
-   - Transaction support for data consistency
-   - Error handling middleware
-   - Database integration with PostgreSQL
+### Status Transition Logic
+
+Task status is automatically determined based on the following rules:
+
+1. **Not Started**: When days taken = 0
+2. **In Progress**: When days taken > 0 but < days assigned
+3. **Completed**: When days taken = days assigned
+4. **On Hold**: When a task in "In Progress" hasn't had its days taken updated in over 1 week
+
+This automation reduces manual status updates and ensures consistency between time tracking and task status.
 
 ## Time Tracking System
 
@@ -157,6 +176,7 @@ The application implements a comprehensive time tracking system across multiple 
 
   - Task progress is calculated as `(days taken / days assigned) × 100%`
   - Visual indicators show time usage with appropriate color coding
+  - Last update timestamp tracks when time data was most recently modified
 
 - **RAG Status Logic**:
   - **Red**: Not enough time left to complete the task (remaining business days < estimated time needed)
@@ -164,6 +184,9 @@ The application implements a comprehensive time tracking system across multiple 
   - **Green**: Comfortable buffer (more than 3 business days buffer)
   - The calculation considers:
     - Business days remaining until due date (excluding weekends)
+    - Assignee's working days per week (e.g., 3 days vs 5 days)
+    - Individual holidays and holiday ranges
+    - Public holidays
     - Estimated days still needed to complete (days assigned - days taken)
 
 ### Project Level
@@ -174,161 +197,11 @@ The application implements a comprehensive time tracking system across multiple 
   - **Amber**: Mix of Green and Amber tasks (no Red tasks)
   - Project RAG automatically updates when task RAG status changes
 
-### Resource Allocation (by Assignee)
+### Quick Time Tracking
 
-- **Monthly allocation tracking**:
-  - Absolute days allocated per month per assignee
-  - Utilization percentage: `(days assigned / business days in month) × 100%`
-- **Utilization RAG Status**:
-  - **Green**: < 80% utilization (underallocated)
-  - **Amber**: 80-99% utilization (optimal allocation)
-  - **Red**: ≥ 100% utilization (overallocated)
-- **Resource Dashboard**:
-  - Monthly view of resource allocation
-  - Highlights over/under allocated team members
-  - Drill-down to individual assignee workload
-
-## Next Development Tasks
-
-### Priority 1: Resource Management
-
-1. Implement time tracking for tasks (days taken vs. assigned)
-
-   ```javascript
-   // In the TasksPage component:
-   const handleUpdateTimeTracking = async (task, daysTaken) => {
-     const updatedTask = { ...task, daysTaken };
-     await taskService.update(task.id, updatedTask);
-     fetchTasks();
-
-     // Update task RAG status based on time tracking logic
-     const daysRemaining = task.days_assigned - daysTaken;
-     const businessDaysUntilDue = calculateBusinessDays(
-       new Date(),
-       new Date(task.due_date)
-     );
-
-     let newRag = 1; // Default Green
-     if (daysRemaining > businessDaysUntilDue) {
-       newRag = 3; // Red - not enough time left
-     } else if (businessDaysUntilDue - daysRemaining <= 3) {
-       newRag = 2; // Amber - tight buffer
-     }
-
-     if (newRag !== task.rag) {
-       await taskService.update(task.id, { ...updatedTask, rag: newRag });
-       updateProjectRag(task.project_id);
-     }
-   };
-   ```
-
-2. Create resource allocation views
-
-   ```javascript
-   // Create a new component:
-   function ResourceAllocationPage() {
-     // Get all business days in each month
-     const getBusinessDaysInMonth = (year, month) => {
-       // Count weekdays in the month
-       let count = 0;
-       const date = new Date(year, month, 1);
-       while (date.getMonth() === month) {
-         const day = date.getDay();
-         if (day !== 0 && day !== 6) count++;
-         date.setDate(date.getDate() + 1);
-       }
-       return count;
-     };
-
-     // Group tasks by assignee and month
-     const groupTasksByAssigneeAndMonth = (tasks) => {
-       const result = {};
-       tasks.forEach((task) => {
-         const assignee = task.assignee;
-         if (!assignee) return;
-
-         if (!result[assignee]) result[assignee] = {};
-
-         // Get month from due_date
-         const dueDate = new Date(task.due_date);
-         const monthKey = `${dueDate.getFullYear()}-${dueDate.getMonth() + 1}`;
-
-         if (!result[assignee][monthKey]) {
-           result[assignee][monthKey] = {
-             tasks: [],
-             totalDaysAssigned: 0,
-             businessDaysInMonth: getBusinessDaysInMonth(
-               dueDate.getFullYear(),
-               dueDate.getMonth()
-             ),
-           };
-         }
-
-         result[assignee][monthKey].tasks.push(task);
-         result[assignee][monthKey].totalDaysAssigned += task.days_assigned;
-       });
-
-       return result;
-     };
-
-     // Calculate utilization percentage and RAG status
-     const calculateUtilization = (allocation) => {
-       return Object.keys(allocation).map((assignee) => {
-         const months = Object.keys(allocation[assignee]).map((monthKey) => {
-           const { totalDaysAssigned, businessDaysInMonth } =
-             allocation[assignee][monthKey];
-           const utilization = (totalDaysAssigned / businessDaysInMonth) * 100;
-
-           let ragStatus = 'success'; // Green - under 80%
-           if (utilization >= 100) {
-             ragStatus = 'error'; // Red - 100% or higher
-           } else if (utilization >= 80) {
-             ragStatus = 'warning'; // Amber - between 80-99%
-           }
-
-           return {
-             month: monthKey,
-             totalDaysAssigned,
-             businessDaysInMonth,
-             utilization,
-             ragStatus,
-           };
-         });
-
-         return {
-           assignee,
-           months,
-         };
-       });
-     };
-
-     // Render the resource allocation dashboard
-   }
-   ```
-
-3. Add workload analysis by assignee
-4. Track task status changes and history
-
-### Priority 2: Search and Filtering
-
-1. Add search functionality for projects and tasks
-2. Implement filtering by status, RAG, assignee, etc.
-3. Add sorting options for tables
-4. Create saved filters/views
-
-### Priority 3: Reporting and Visualization
-
-1. Add dashboard charts for project metrics
-2. Create timeline/Gantt view for projects
-3. Generate PDF reports for projects
-4. Implement team performance analytics
-
-### Priority 4: Data Management
-
-1. Add Excel import functionality
-2. Add Excel export functionality
-3. Create data validation rules
-4. Implement audit logging
+- One-click time updates for logging daily progress
+- Automatic status transitions based on time tracking data
+- Visual progress indicators showing time usage
 
 ## Database Schema
 
@@ -360,19 +233,39 @@ CREATE TABLE tasks (
     days_assigned INTEGER,
     days_taken INTEGER DEFAULT 0,
     description TEXT,
+    last_updated_days TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Users table (future implementation)
-CREATE TABLE users (
+-- Assignees table
+CREATE TABLE assignees (
     id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) DEFAULT 'user',
-    password_hash VARCHAR(255),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255),
+    working_days_per_week DECIMAL(3,1) DEFAULT 5.0,
+    start_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Assignee holidays table
+CREATE TABLE assignee_holidays (
+    id SERIAL PRIMARY KEY,
+    assignee_id INTEGER REFERENCES assignees(id) ON DELETE CASCADE,
+    holiday_date DATE NOT NULL,
+    date_end DATE,
+    description VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Public holidays table
+CREATE TABLE public_holidays (
+    id SERIAL PRIMARY KEY,
+    holiday_date DATE NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    country_code VARCHAR(2) DEFAULT 'GB',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -381,7 +274,6 @@ CREATE TABLE users (
 ### Projects
 
 - `GET /api/projects` - Get all projects
-- `GET /api/projects/:id` - Get single project
 - `POST /api/projects` - Create project
 - `PUT /api/projects/:id` - Update project
 - `DELETE /api/projects/:id` - Delete project
@@ -389,76 +281,81 @@ CREATE TABLE users (
 ### Tasks
 
 - `GET /api/tasks` - Get all tasks
-- `GET /api/tasks/project/:projectId` - Get tasks by project
 - `POST /api/tasks` - Create task
 - `PUT /api/tasks/:id` - Update task
 - `DELETE /api/tasks/:id` - Delete task
 
-## Development Workflow
+### Assignees
 
-### To run the project:
+- `GET /api/assignees` - Get all assignees
+- `GET /api/assignees/:id` - Get assignee by ID
+- `POST /api/assignees` - Create assignee
+- `PUT /api/assignees/:id` - Update assignee
+- `DELETE /api/assignees/:id` - Delete assignee
+
+### Holidays
+
+- `GET /api/assignees/:id/holidays` - Get holidays for an assignee
+- `POST /api/assignees/:id/holidays` - Add holiday for assignee
+- `POST /api/assignees/:id/holiday-range` - Add holiday range for assignee
+- `DELETE /api/assignees/holidays/:id` - Delete holiday
+- `GET /api/holidays/public` - Get all public holidays
+- `POST /api/holidays/public` - Create public holiday
+- `DELETE /api/holidays/public/:id` - Delete public holiday
+
+## Running the Application
+
+### Backend
 
 ```bash
-# Terminal 1 - Backend
 cd backend
 npm install
-npm start
+npm run dev
+```
 
-# Terminal 2 - Frontend
+### Frontend
+
+```bash
 cd client
 npm install
 npm start
 ```
 
-### Current Endpoints
+### Endpoints
 
-- Backend: http://localhost:3001
 - Frontend: http://localhost:3000
+- Backend API: http://localhost:3001/api
 - Health Check: http://localhost:3001/api/health
 
-## Known Issues
+## Next Development Steps
 
-- No user authentication (single-user mode)
-- No Excel import/export functionality
-- No advanced filtering or searching
-- Limited data validation on some fields
+### Priority 1: Resource Allocation Views
 
-## Future Roadmap
+1. Create assignee-based workload analysis
+2. Implement calendar view of resource allocation
+3. Add visual indicators for over/under allocation
+4. Create team capacity dashboard
 
-### Version 0.5.0
+### Priority 2: Search and Filtering
 
-- Resource allocation and time tracking
-- Advanced filtering and search
-- Dashboard charts and visualizations
-- Timeline/Gantt view
+1. Add search functionality for projects and tasks
+2. Implement filtering by status, RAG, assignee, etc.
+3. Add sorting options for tables
+4. Create saved filters/views
 
-### Version 0.6.0
+### Priority 3: Reporting and Visualization
 
-- Excel import/export
-- Advanced reporting
-- Email notifications
-- Data validation rules
+1. Add dashboard charts for project metrics
+2. Create timeline/Gantt view for projects
+3. Generate PDF reports for projects
+4. Implement team performance analytics
 
-### Version 0.7.0
+### Priority 4: Data Management
 
-- User authentication
-- Role-based access control
-- Multi-user support
-- Audit logging
-
-### Version 1.0.0
-
-- Complete feature parity with Excel system
-- Performance optimization
-- Production deployment
-- User documentation
-
-## Contributing
-
-1. Create a feature branch from `development`
-2. Make your changes
-3. Submit a pull request to `development`
-4. After review, merge to `main`
+1. Add Excel import functionality
+2. Add Excel export functionality
+3. Create data validation rules
+4. Implement audit logging
 
 ## License
 

@@ -11,6 +11,8 @@ app.use(express.json());
 // Import routes
 const projectRoutes = require('./routes/projects');
 const taskRoutes = require('./routes/tasks');
+const assigneeRoutes = require('./routes/assignees');
+const holidayRoutes = require('./routes/holidays');
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -29,6 +31,8 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/assignees', assigneeRoutes);
+app.use('/api/holidays', holidayRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
