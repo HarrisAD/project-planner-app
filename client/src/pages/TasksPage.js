@@ -16,12 +16,25 @@ import {
   Stack,
   Tooltip,
   IconButton,
+  TextField,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  InputAdornment,
+  Grid,
+  Collapse,
+  Card,
+  CardContent,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { taskService } from '../services/api';
 import TaskForm from '../components/tasks/TaskForm';
 import TimeUsageDisplay from '../components/tasks/TimeUsageDisplay';
@@ -35,6 +48,7 @@ import {
 
 function TasksPage() {
   const [tasks, setTasks] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openForm, setOpenForm] = useState(false);
   const [error, setError] = useState(null);
@@ -42,7 +56,25 @@ function TasksPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { showNotification } = useNotification();
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    name: '',
+    project: '',
+    assignee: '',
+    status: '',
+    rag: '',
+    dueDate: '',
+  });
+
+  // Filter options (derived from task data)
+  const [filterOptions, setFilterOptions] = useState({
+    projects: [],
+    assignees: [],
+    statuses: [],
+  });
 
   const fetchTasks = async () => {
     try {
@@ -97,6 +129,29 @@ function TasksPage() {
       // Wait for all RAG calculations to complete
       const enhancedTasks = await Promise.all(tasksPromises);
 
+      // Extract filter options from the tasks
+      const projectOptions = [
+        ...new Set(enhancedTasks.map((task) => task.project_name)),
+      ]
+        .filter(Boolean)
+        .sort();
+      const assigneeOptions = [
+        ...new Set(enhancedTasks.map((task) => task.assignee)),
+      ]
+        .filter(Boolean)
+        .sort();
+      const statusOptions = [
+        ...new Set(enhancedTasks.map((task) => task.status)),
+      ]
+        .filter(Boolean)
+        .sort();
+
+      setFilterOptions({
+        projects: projectOptions,
+        assignees: assigneeOptions,
+        statuses: statusOptions,
+      });
+
       setTasks(enhancedTasks);
       setError(null);
     } catch (err) {
@@ -108,10 +163,91 @@ function TasksPage() {
     }
   };
 
+  // Apply filters whenever tasks or filters change
+  useEffect(() => {
+    applyFilters();
+  }, [tasks, filters]);
+
   useEffect(() => {
     fetchTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Function to apply filters to tasks
+  const applyFilters = () => {
+    let result = [...tasks];
+
+    // Filter by name
+    if (filters.name) {
+      const searchTerm = filters.name.toLowerCase();
+      result = result.filter((task) =>
+        task.name.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Filter by project
+    if (filters.project) {
+      result = result.filter((task) => task.project_name === filters.project);
+    }
+
+    // Filter by assignee
+    if (filters.assignee) {
+      result = result.filter((task) => task.assignee === filters.assignee);
+    }
+
+    // Filter by status
+    if (filters.status) {
+      result = result.filter((task) => task.status === filters.status);
+    }
+
+    // Filter by RAG status
+    if (filters.rag) {
+      const ragValue = parseInt(filters.rag);
+      result = result.filter(
+        (task) => task.timeInfo && task.timeInfo.calculatedRag === ragValue
+      );
+    }
+
+    // Filter by due date
+    if (filters.dueDate) {
+      const filterDate = new Date(filters.dueDate);
+      filterDate.setHours(0, 0, 0, 0);
+
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const taskDueDate = new Date(task.due_date);
+        taskDueDate.setHours(0, 0, 0, 0);
+        return taskDueDate.getTime() === filterDate.getTime();
+      });
+    }
+
+    setFilteredTasks(result);
+  };
+
+  // Filter change handler
+  const handleFilterChange = (field) => (event) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: event.target.value,
+    }));
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      name: '',
+      project: '',
+      assignee: '',
+      status: '',
+      rag: '',
+      dueDate: '',
+    });
+  };
+
+  // Toggle filters visibility
+  const toggleFilters = () => {
+    setFiltersOpen(!filtersOpen);
+  };
 
   const handleCreateTask = async (taskData) => {
     try {
@@ -144,6 +280,7 @@ function TasksPage() {
       showNotification('Failed to update task', 'error');
     }
   };
+
   const handleOpenCreateForm = () => {
     setCurrentTask(null);
     setIsEditing(false);
@@ -195,9 +332,6 @@ function TasksPage() {
       showNotification('Failed to delete task', 'error');
     }
   };
-
-  // Quick update function that automatically updates RAG status and task status
-  // In TasksPage.js, find the handleQuickUpdateDaysTaken function and update it:
 
   const handleQuickUpdateDaysTaken = async (task, increment) => {
     try {
@@ -325,28 +459,225 @@ function TasksPage() {
     );
   }
 
+  const displayTasks = filteredTasks.length > 0 ? filteredTasks : tasks;
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Tasks</Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={handleOpenCreateForm}
-        >
-          Add Task
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            startIcon={<FilterListIcon />}
+            onClick={toggleFilters}
+            color={filtersOpen ? 'primary' : 'default'}
+          >
+            Filters {filtersOpen ? '(Hide)' : '(Show)'}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleOpenCreateForm}
+          >
+            Add Task
+          </Button>
+        </Stack>
       </Box>
 
+      {/* Filter Panel */}
+      <Collapse in={filtersOpen}>
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <TextField
+                  label="Task Name"
+                  variant="outlined"
+                  fullWidth
+                  value={filters.name}
+                  onChange={handleFilterChange('name')}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                    endAdornment: filters.name ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() =>
+                            setFilters((prev) => ({ ...prev, name: '' }))
+                          }
+                          edge="end"
+                          size="small"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel
+                    id="project-filter-label"
+                    shrink={true} // Forces the label to always be in the "shrunk" position
+                  >
+                    Project
+                  </InputLabel>
+                  <Select
+                    labelId="project-filter-label"
+                    value={filters.project}
+                    onChange={handleFilterChange('project')}
+                    label="Project"
+                    displayEmpty
+                    notched={true} // Ensures the label outline is always notched for the label
+                  >
+                    <MenuItem value="">All Projects</MenuItem>
+                    {filterOptions.projects.map((project) => (
+                      <MenuItem key={project} value={project}>
+                        {project}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>{' '}
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="assignee-filter-label" shrink={true}>
+                    Assignee
+                  </InputLabel>
+                  <Select
+                    labelId="assignee-filter-label"
+                    value={filters.assignee}
+                    onChange={handleFilterChange('assignee')}
+                    label="Assignee"
+                    displayEmpty
+                    notched={true}
+                  >
+                    <MenuItem value="">All Assignees</MenuItem>
+                    {filterOptions.assignees.map((assignee) => (
+                      <MenuItem key={assignee} value={assignee}>
+                        {assignee}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>{' '}
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="status-filter-label" shrink={true}>
+                    Status
+                  </InputLabel>
+                  <Select
+                    labelId="status-filter-label"
+                    value={filters.status}
+                    onChange={handleFilterChange('status')}
+                    label="Status"
+                    displayEmpty
+                    notched={true}
+                  >
+                    <MenuItem value="">All Statuses</MenuItem>
+                    {filterOptions.statuses.map((status) => (
+                      <MenuItem key={status} value={status}>
+                        {status}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>{' '}
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="rag-filter-label" shrink={true}>
+                    RAG Status
+                  </InputLabel>
+                  <Select
+                    labelId="rag-filter-label"
+                    value={filters.rag}
+                    onChange={handleFilterChange('rag')}
+                    label="RAG Status"
+                    displayEmpty
+                    notched={true}
+                  >
+                    <MenuItem value="">All RAG Statuses</MenuItem>
+                    <MenuItem value="1">Green</MenuItem>
+                    <MenuItem value="2">Amber</MenuItem>
+                    <MenuItem value="3">Red</MenuItem>
+                  </Select>
+                </FormControl>{' '}
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <TextField
+                  label="Due Date"
+                  type="date"
+                  fullWidth
+                  value={filters.dueDate}
+                  onChange={handleFilterChange('dueDate')}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  InputProps={{
+                    endAdornment: filters.dueDate ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() =>
+                            setFilters((prev) => ({ ...prev, dueDate: '' }))
+                          }
+                          edge="end"
+                          size="small"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} display="flex" justifyContent="flex-end">
+                <Button
+                  variant="outlined"
+                  onClick={clearFilters}
+                  startIcon={<ClearIcon />}
+                >
+                  Clear All Filters
+                </Button>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Collapse>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
+      {/* Display filtered count if filtering is active */}
+      {Object.values(filters).some((f) => f !== '') && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            Showing {filteredTasks.length} of {tasks.length} tasks
+          </Typography>
+        </Box>
+      )}
+
       {!loading && tasks.length === 0 ? (
         <Typography>No tasks found. Create your first task!</Typography>
+      ) : !loading &&
+        filteredTasks.length === 0 &&
+        Object.values(filters).some((f) => f !== '') ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No tasks match the current filters. Try adjusting your filter
+          criteria.
+        </Alert>
       ) : (
         <TableContainer component={Paper}>
           <Table>
@@ -385,7 +716,7 @@ function TasksPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tasks.map((task) => (
+              {displayTasks.map((task) => (
                 <TableRow key={task.id}>
                   <TableCell>{task.name}</TableCell>
                   <TableCell>{task.project_name}</TableCell>

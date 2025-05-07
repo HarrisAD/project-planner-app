@@ -315,7 +315,6 @@ router.get('/calendar', async (req, res) => {
 });
 
 // Get workload summary data for all assignees
-// Get workload summary data for all assignees
 router.get('/workload-summary', async (req, res) => {
   try {
     // Get optional timeframe parameter
@@ -425,7 +424,7 @@ router.get('/workload-summary', async (req, res) => {
       const filterStartDate = new Date(startDate);
       const filterEndDate = new Date(endDate);
 
-      // Debug log - moved inside the loop
+      // Debug log
       console.log(`Task: ${task.name}, Assignee: ${task.assignee}`);
       console.log(
         `  Start: ${taskStartDate.toISOString().split('T')[0]}, Due: ${
@@ -441,45 +440,49 @@ router.get('/workload-summary', async (req, res) => {
         `  Days assigned: ${task.days_assigned}, Days taken: ${task.days_taken}, Remaining: ${daysRemaining}`
       );
 
-      // Get effective date range (intersection of task dates and filter dates)
-      const effectiveStart = new Date(
-        Math.max(taskStartDate.getTime(), filterStartDate.getTime())
-      );
-      const effectiveEnd = new Date(
-        Math.min(taskDueDate.getTime(), filterEndDate.getTime())
-      );
-
       // Make sure we're working with clean dates without time components
-      effectiveStart.setHours(0, 0, 0, 0);
-      effectiveEnd.setHours(0, 0, 0, 0);
       taskStartDate.setHours(0, 0, 0, 0);
       taskDueDate.setHours(0, 0, 0, 0);
+      filterStartDate.setHours(0, 0, 0, 0);
+      filterEndDate.setHours(0, 0, 0, 0);
 
-      // Calculate total task duration in calendar days (inclusive of start and end date)
-      const totalTaskDays = Math.max(
-        1,
-        Math.floor((taskDueDate - taskStartDate) / (1000 * 60 * 60 * 24)) + 1
+      // Use the later of task start date or filter start date
+      const effectiveStartDate = new Date(
+        Math.max(taskStartDate.getTime(), filterStartDate.getTime())
       );
 
-      // Calculate days in our filter period (inclusive of start and end date)
-      const daysInPeriod = Math.max(
-        0,
-        Math.floor((effectiveEnd - effectiveStart) / (1000 * 60 * 60 * 24)) + 1
-      );
+      let proportion = 1.0; // Default to full allocation
 
-      // Special case: If the task fits entirely within the period, use 100%
-      const taskEntirelyInPeriod =
-        taskStartDate >= filterStartDate && taskDueDate <= filterEndDate;
+      // If the task ends after the filter period, calculate pro-rated allocation
+      if (taskDueDate > filterEndDate) {
+        // Total working days from effective start to task due date
+        const totalDays = Math.max(
+          1,
+          Math.floor(
+            (taskDueDate - effectiveStartDate) / (1000 * 60 * 60 * 24)
+          ) + 1
+        );
 
-      // Calculate proportion - either 100% if task is entirely in period, or the calculated ratio
-      const proportion = taskEntirelyInPeriod
-        ? 1
-        : Math.min(1, daysInPeriod / totalTaskDays);
+        // Days in our filter period
+        const daysInPeriod = Math.max(
+          1,
+          Math.floor(
+            (filterEndDate - effectiveStartDate) / (1000 * 60 * 60 * 24)
+          ) + 1
+        );
+
+        // Calculate proportion
+        proportion = Math.min(1, daysInPeriod / totalDays);
+      }
 
       // Calculate prorated allocation
       const prorated = daysRemaining * proportion;
       console.log(
-        `  Total duration: ${totalTaskDays} days, Days in period: ${daysInPeriod}`
+        `  Total days to complete: ${
+          Math.floor(
+            (taskDueDate - effectiveStartDate) / (1000 * 60 * 60 * 24)
+          ) + 1
+        }`
       );
       console.log(
         `  Proportion: ${proportion.toFixed(
@@ -540,6 +543,7 @@ router.get('/workload-summary', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch workload summary' });
   }
 });
+
 // Helper function to calculate business days between two dates
 async function calculateBusinessDays(startDate, endDate) {
   // Convert to Date objects
