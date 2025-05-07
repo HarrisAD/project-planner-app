@@ -7,8 +7,14 @@ import { Box, Typography, LinearProgress, Tooltip } from '@mui/material';
  * @param {number} daysAssigned - Total days assigned to task
  * @param {number} daysTaken - Days already spent on task
  * @param {number} ragStatus - Current RAG status (1=Green, 2=Amber, 3=Red)
+ * @param {boolean} showPercentage - Whether to show percentage completion
  */
-function TimeUsageDisplay({ daysAssigned, daysTaken, ragStatus }) {
+function TimeUsageDisplay({
+  daysAssigned,
+  daysTaken,
+  ragStatus,
+  showPercentage = false,
+}) {
   const formattedDaysTaken = parseInt(daysTaken) || 0;
   const formattedDaysAssigned = parseInt(daysAssigned) || 1; // Prevent division by zero
 
@@ -35,20 +41,33 @@ function TimeUsageDisplay({ daysAssigned, daysTaken, ragStatus }) {
       )}%)`}
       arrow
     >
-      <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
-        <Box sx={{ flexGrow: 1, mr: 1 }}>
-          <LinearProgress
-            variant="determinate"
-            value={percentage}
-            color={color}
-            sx={{ height: 8, borderRadius: 4 }}
-          />
+      <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ flexGrow: 1, mr: 1 }}>
+            <LinearProgress
+              variant="determinate"
+              value={percentage}
+              color={color}
+              sx={{ height: 8, borderRadius: 4 }}
+            />
+          </Box>
+          <Box sx={{ minWidth: 35 }}>
+            <Typography variant="body2" color="text.secondary">
+              {`${formattedDaysTaken}/${formattedDaysAssigned}`}
+            </Typography>
+          </Box>
         </Box>
-        <Box sx={{ minWidth: 35 }}>
-          <Typography variant="body2" color="text.secondary">
-            {`${formattedDaysTaken}/${formattedDaysAssigned}`}
+
+        {showPercentage && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            align="center"
+            sx={{ mt: 0.5 }}
+          >
+            {Math.round(percentage)}% complete
           </Typography>
-        </Box>
+        )}
       </Box>
     </Tooltip>
   );

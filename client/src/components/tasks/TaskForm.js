@@ -17,13 +17,30 @@ import {
   Box,
   Chip,
   FormHelperText,
+  Switch,
+  FormControlLabel,
+  Autocomplete,
 } from '@mui/material';
-import { projectService, assigneeService } from '../../services/api';
+import {
+  projectService,
+  assigneeService,
+  taskService,
+} from '../../services/api';
 import { calculateTaskRagStatus } from '../../utils/dateUtils';
+
+// Define persona options
+const PERSONA_OPTIONS = [
+  { value: 'exec_sponsor', label: 'Exec Sponsor' },
+  { value: 'exec_lead', label: 'Exec Lead' },
+  { value: 'developer', label: 'Developer' },
+  { value: 'consultant', label: 'Consultant' },
+  { value: 'programme_manager', label: 'Programme Manager' },
+];
 
 function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   const [projects, setProjects] = useState([]);
   const [assignees, setAssignees] = useState([]);
+  const [parentTasks, setParentTasks] = useState([]);
   const [ragInfo, setRagInfo] = useState({
     ragStatus: 1,
     buffer: 0,
@@ -45,21 +62,28 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
       assignee: '',
       status: 'Not Started',
       rag: 1,
-      startDate: '', // Initialize start date
+      startDate: '',
       dueDate: '',
       daysAssigned: '',
       daysTaken: 0,
       description: '',
+      tauNotes: '',
+      pathToGreen: '',
+      persona: '',
+      isSubTask: false,
+      parentTaskId: '',
     },
   });
 
-  // Watch the fields that affect RAG calculation
+  // Watch the fields that affect RAG calculation and sub-task settings
   const daysAssigned = watch('daysAssigned');
   const daysTaken = watch('daysTaken');
   const dueDate = watch('dueDate');
-  const startDate = watch('startDate'); // Watch start date too
+  const startDate = watch('startDate');
+  const projectId = watch('projectId');
+  const isSubTask = watch('isSubTask');
 
-  // Fetch assignees when form opens
+  // Fetch assignees, projects, and potential parent tasks when form opens
   useEffect(() => {
     if (open) {
       setLoading(true);
@@ -82,12 +106,39 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
         })
         .catch((err) => {
           console.error('Error fetching assignees:', err);
+        });
+
+      // Fetch tasks that could be parent tasks (non-subtasks)
+      taskService
+        .getAll()
+        .then((response) => {
+          // Filter out tasks that are already subtasks
+          const potentialParents = response.data.filter(
+            (task) => !task.is_sub_task
+          );
+          setParentTasks(potentialParents);
+        })
+        .catch((err) => {
+          console.error('Error fetching potential parent tasks:', err);
         })
         .finally(() => {
           setLoading(false);
         });
     }
   }, [open]);
+
+  // When project changes, filter parent tasks to only include tasks from the same project
+  useEffect(() => {
+    if (projectId && parentTasks.length > 0) {
+      // Only show parent tasks from the same project
+      const filteredParents = parentTasks.filter(
+        (task) => task.project_id.toString() === projectId.toString()
+      );
+
+      // If the currently selected parent is not in the filtered list, clear it
+      setValue('parentTaskId', '');
+    }
+  }, [projectId, parentTasks, setValue]);
 
   // Calculate RAG status whenever relevant fields change
   useEffect(() => {
@@ -129,15 +180,20 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
         assignee: initialData.assignee || '',
         status: initialData.status || 'Not Started',
         rag: initialData.rag || 1,
-        // Use our safe date formatting function
         startDate: formatDateForInput(initialData.start_date),
         dueDate: formatDateForInput(initialData.due_date),
         daysAssigned: initialData.days_assigned || '',
         daysTaken: initialData.days_taken || 0,
         description: initialData.description || '',
+        tauNotes: initialData.tau_notes || '',
+        pathToGreen: initialData.path_to_green || '',
+        persona: initialData.persona || '',
+        isSubTask: initialData.is_sub_task || false,
+        parentTaskId: initialData.parent_task_id || '',
       });
     }
   }, [initialData, reset]);
+
   // Update assignee field when editing and assignees are loaded
   useEffect(() => {
     if (initialData && initialData.assignee && assignees.length > 0) {
@@ -159,6 +215,8 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
       daysAssigned: parseInt(data.daysAssigned),
       daysTaken: parseInt(data.daysTaken || 0),
       rag: ragInfo.ragStatus, // Use calculated RAG status
+      isSubTask: data.isSubTask,
+      parentTaskId: data.isSubTask ? data.parentTaskId : null,
     };
 
     // Log the data being submitted
@@ -209,12 +267,13 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   }, [isEdit, open, startDate, setValue]);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogTitle>{isEdit ? 'Edit Task' : 'Create New Task'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+            {/* Basic Task Information */}
+            <Grid item xs={12} sm={8}>
               <Controller
                 name="name"
                 control={control}
@@ -226,6 +285,26 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                     fullWidth
                     error={!!errors.name}
                     helperText={errors.name?.message}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Sub-task Switch */}
+            <Grid item xs={12} sm={4}>
+              <Controller
+                name="isSubTask"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={value}
+                        onChange={onChange}
+                        color="primary"
+                      />
+                    }
+                    label="Is Sub-Task"
                   />
                 )}
               />
@@ -264,6 +343,60 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
+
+            {/* Parent Task dropdown (only visible if isSubTask is true) */}
+            {isSubTask && (
+              <Grid item xs={12}>
+                <Controller
+                  name="parentTaskId"
+                  control={control}
+                  rules={{
+                    required: isSubTask
+                      ? 'Parent task is required for sub-tasks'
+                      : false,
+                  }}
+                  render={({ field }) => (
+                    <FormControl
+                      fullWidth
+                      error={!!errors.parentTaskId}
+                      sx={{ minWidth: '120px' }}
+                    >
+                      <InputLabel>Parent Task</InputLabel>
+                      <Select
+                        {...field}
+                        label="Parent Task"
+                        displayEmpty
+                        sx={{ minHeight: '56px' }}
+                        disabled={!projectId || loading}
+                      >
+                        {parentTasks
+                          .filter(
+                            (task) =>
+                              task.project_id.toString() ===
+                              projectId.toString()
+                          )
+                          .map((task) => (
+                            <MenuItem key={task.id} value={task.id}>
+                              {task.name}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                      {errors.parentTaskId && (
+                        <FormHelperText>
+                          {errors.parentTaskId.message}
+                        </FormHelperText>
+                      )}
+                      {!projectId && (
+                        <FormHelperText>
+                          Select a project first to see available parent tasks
+                        </FormHelperText>
+                      )}
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+            )}
+
             <Grid item xs={12} sm={6}>
               <Controller
                 name="assignee"
@@ -301,6 +434,30 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
+
+            {/* Persona Dropdown */}
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="persona"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth>
+                    <InputLabel>Persona</InputLabel>
+                    <Select {...field} label="Persona" displayEmpty>
+                      <MenuItem value="">
+                        <em>None</em>
+                      </MenuItem>
+                      {PERSONA_OPTIONS.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              />
+            </Grid>
+
             <Grid item xs={12} sm={6}>
               <Controller
                 name="status"
@@ -415,6 +572,7 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
               </Box>
             </Grid>
 
+            {/* Task Description */}
             <Grid item xs={12}>
               <Controller
                 name="description"
@@ -426,6 +584,43 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                     fullWidth
                     multiline
                     rows={3}
+                    placeholder="Enter task description here..."
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Path to Green */}
+            <Grid item xs={12}>
+              <Controller
+                name="pathToGreen"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Path to Green"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    placeholder="Enter steps to move task to green status..."
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Tau Notes */}
+            <Grid item xs={12}>
+              <Controller
+                name="tauNotes"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Tau Notes"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    placeholder="Enter TAU notes here..."
                   />
                 )}
               />
@@ -438,7 +633,11 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
             type="submit"
             variant="contained"
             color="primary"
-            disabled={loading || assignees.length === 0}
+            disabled={
+              loading ||
+              assignees.length === 0 ||
+              (isSubTask && (!projectId || parentTasks.length === 0))
+            }
           >
             {isEdit ? 'Update Task' : 'Create Task'}
           </Button>
