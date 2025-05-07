@@ -1,3 +1,5 @@
+// backend/src/routes/tasks.js - Updates to support new fields
+
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -73,6 +75,11 @@ router.post('/', async (req, res) => {
       dueDate,
       daysAssigned,
       description,
+      tauNotes,
+      pathToGreen,
+      persona,
+      isSubTask,
+      parentTaskId,
     } = req.body;
 
     // Debug log
@@ -88,13 +95,33 @@ router.post('/', async (req, res) => {
         dueDate,
         daysAssigned,
         description,
+        tauNotes,
+        pathToGreen,
+        persona,
+        isSubTask,
+        parentTaskId,
       })
     );
 
     const taskResult = await client.query(
-      `INSERT INTO tasks (project_id, name, assignee, status, rag, start_date, due_date, days_assigned, description) 
-         VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::DATE, NULLIF($7, '')::DATE, $8, $9) 
-         RETURNING *`,
+      `INSERT INTO tasks (
+          project_id, 
+          name, 
+          assignee, 
+          status, 
+          rag, 
+          start_date, 
+          due_date, 
+          days_assigned, 
+          description,
+          tau_notes,
+          path_to_green,
+          persona,
+          is_sub_task,
+          parent_task_id
+        ) 
+        VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::DATE, NULLIF($7, '')::DATE, $8, $9, $10, $11, $12, $13, $14) 
+        RETURNING *`,
       [
         projectId,
         name,
@@ -105,6 +132,11 @@ router.post('/', async (req, res) => {
         dueDate,
         daysAssigned,
         description,
+        tauNotes || null,
+        pathToGreen || null,
+        persona || null,
+        isSubTask || false,
+        parentTaskId ? parseInt(parentTaskId) : null,
       ]
     );
 
@@ -121,7 +153,9 @@ router.post('/', async (req, res) => {
   } finally {
     client.release();
   }
-}); // Update a task
+});
+
+// Update a task
 router.put('/:id', async (req, res) => {
   const client = await db.pool.connect();
 
@@ -140,6 +174,11 @@ router.put('/:id', async (req, res) => {
       daysAssigned,
       description,
       daysTaken,
+      tauNotes,
+      pathToGreen,
+      persona,
+      isSubTask,
+      parentTaskId,
     } = req.body;
 
     // Debug log
@@ -157,6 +196,11 @@ router.put('/:id', async (req, res) => {
         daysAssigned,
         description,
         daysTaken,
+        tauNotes,
+        pathToGreen,
+        persona,
+        isSubTask,
+        parentTaskId,
       })
     );
 
@@ -185,8 +229,17 @@ router.put('/:id', async (req, res) => {
              days_assigned = $8,
              days_taken = $9,
              description = $10,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $11
+             tau_notes = $11,
+             path_to_green = $12,
+             persona = $13,
+             is_sub_task = $14,
+             parent_task_id = $15,
+             updated_at = CURRENT_TIMESTAMP,
+             last_updated_days = CASE 
+                WHEN days_taken != $9 THEN CURRENT_TIMESTAMP 
+                ELSE last_updated_days 
+             END
+         WHERE id = $16
          RETURNING *`,
       [
         projectId,
@@ -199,6 +252,11 @@ router.put('/:id', async (req, res) => {
         daysAssigned,
         daysTaken || 0,
         description,
+        tauNotes || null,
+        pathToGreen || null,
+        persona || null,
+        isSubTask || false,
+        parentTaskId ? parseInt(parentTaskId) : null,
         id,
       ]
     );
@@ -273,4 +331,28 @@ router.delete('/:id', async (req, res) => {
     client.release();
   }
 });
+
+// Get all sub-tasks for a parent task
+router.get('/subtasks/:parentId', async (req, res) => {
+  try {
+    const { parentId } = req.params;
+
+    const result = await db.query(
+      `
+      SELECT t.*, p.company_name, p.workstream as project_name
+      FROM tasks t
+      LEFT JOIN projects p ON t.project_id = p.id
+      WHERE t.parent_task_id = $1
+      ORDER BY t.created_at DESC
+    `,
+      [parentId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching sub-tasks:', err);
+    res.status(500).json({ error: 'Failed to fetch sub-tasks' });
+  }
+});
+
 module.exports = router;

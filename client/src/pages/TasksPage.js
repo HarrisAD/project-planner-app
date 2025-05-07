@@ -3,13 +3,6 @@ import {
   Box,
   Typography,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Chip,
   CircularProgress,
   Alert,
@@ -26,6 +19,10 @@ import {
   Collapse,
   Card,
   CardContent,
+  FormControlLabel,
+  Checkbox,
+  TableCell,
+  Popover,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -35,16 +32,29 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import NotesIcon from '@mui/icons-material/Notes';
 import { taskService } from '../services/api';
 import TaskForm from '../components/tasks/TaskForm';
 import TimeUsageDisplay from '../components/tasks/TimeUsageDisplay';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import ResizableTable from '../components/common/ResizableTable'; // Import our new component
 import { useNotification } from '../context/NotificationContext';
 import {
   calculateEnhancedRagStatus,
   determineTaskStatus,
   timeAgo,
 } from '../utils/dateUtils';
+
+// Define persona options
+const PERSONA_OPTIONS = [
+  { value: 'exec_sponsor', label: 'Exec Sponsor' },
+  { value: 'exec_lead', label: 'Exec Lead' },
+  { value: 'developer', label: 'Developer' },
+  { value: 'consultant', label: 'Consultant' },
+  { value: 'programme_manager', label: 'Programme Manager' },
+];
 
 function TasksPage() {
   const [tasks, setTasks] = useState([]);
@@ -59,6 +69,14 @@ function TasksPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { showNotification } = useNotification();
 
+  // State for inline editable fields
+  const [editingPathToGreen, setEditingPathToGreen] = useState(null);
+  const [pathToGreenValue, setPathToGreenValue] = useState('');
+  const [editingPersona, setEditingPersona] = useState(null);
+  const [tauNotesAnchorEl, setTauNotesAnchorEl] = useState(null);
+  const [currentTauNotes, setCurrentTauNotes] = useState('');
+  const [editingTauNotes, setEditingTauNotes] = useState(null);
+
   // Filter state
   const [filters, setFilters] = useState({
     name: '',
@@ -67,6 +85,8 @@ function TasksPage() {
     status: '',
     rag: '',
     dueDate: '',
+    persona: '', // Added persona filter
+    subTask: false, // Added sub-task filter
   });
 
   // Filter options (derived from task data)
@@ -74,7 +94,204 @@ function TasksPage() {
     projects: [],
     assignees: [],
     statuses: [],
+    personas: PERSONA_OPTIONS.map((p) => p.value),
   });
+
+  // Define table columns
+  const columns = [
+    { id: 'name', label: 'Task', width: 200 },
+    { id: 'subTask', label: 'Sub Task', width: 80 },
+    { id: 'project', label: 'Project', width: 150 },
+    { id: 'assignee', label: 'Assignee', width: 120 },
+    { id: 'status', label: 'Status', width: 120 },
+    {
+      id: 'rag',
+      label: 'RAG',
+      width: 120,
+      renderHeader: () => (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          RAG
+          <Tooltip
+            title="Automatically calculated based on days assigned, days taken, assignee working days, and holidays"
+            arrow
+          >
+            <IconButton size="small">
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+    { id: 'persona', label: 'Persona', width: 150 },
+    { id: 'dueDate', label: 'Due Date', width: 120 },
+    {
+      id: 'timeUsage',
+      label: 'Time Usage',
+      width: 200,
+      renderHeader: () => (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          Time Usage
+          <Tooltip
+            title="Shows days taken vs days assigned and completion percentage"
+            arrow
+          >
+            <IconButton size="small">
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+    { id: 'pathToGreen', label: 'Path to Green', width: 200 },
+    { id: 'notes', label: 'Notes', width: 80 },
+    { id: 'lastUpdated', label: 'Last Updated', width: 120 },
+    { id: 'actions', label: 'Actions', width: 150 },
+  ];
+
+  // Handle Tau Notes popover
+  const handleTauNotesClick = (event, task) => {
+    setTauNotesAnchorEl(event.currentTarget);
+    setCurrentTauNotes(task.tau_notes || '');
+    setEditingTauNotes(task.id);
+  };
+
+  const handleTauNotesClose = () => {
+    setTauNotesAnchorEl(null);
+    setEditingTauNotes(null);
+  };
+
+  const saveTauNotes = async () => {
+    if (!editingTauNotes) return;
+
+    try {
+      const task = tasks.find((t) => t.id === editingTauNotes);
+      if (!task) return;
+
+      const updatedTask = {
+        ...task,
+        tau_notes: currentTauNotes,
+      };
+
+      // Create a complete update object that preserves all original values
+      const updateData = {
+        name: task.name,
+        projectId: task.project_id,
+        assignee: task.assignee,
+        status: task.status,
+        rag: task.rag,
+        startDate: task.start_date,
+        dueDate: task.due_date,
+        daysAssigned: task.days_assigned,
+        daysTaken: task.days_taken,
+        description: task.description || '',
+        tauNotes: currentTauNotes,
+        pathToGreen: task.path_to_green || '',
+        persona: task.persona || '',
+        isSubTask: task.is_sub_task || false,
+        parentTaskId: task.parent_task_id || null,
+      };
+
+      await taskService.update(task.id, updateData);
+
+      // Update local state
+      setTasks(
+        tasks.map((t) =>
+          t.id === task.id ? { ...t, tau_notes: currentTauNotes } : t
+        )
+      );
+      showNotification('Tau notes updated successfully');
+      handleTauNotesClose();
+    } catch (err) {
+      console.error('Error updating tau notes:', err);
+      showNotification('Failed to update tau notes', 'error');
+    }
+  };
+
+  // Handle path to green inline editing
+  const handlePathToGreenEdit = (taskId, currentValue) => {
+    setEditingPathToGreen(taskId);
+    setPathToGreenValue(currentValue || '');
+  };
+
+  const savePathToGreen = async () => {
+    if (!editingPathToGreen) return;
+
+    try {
+      const task = tasks.find((t) => t.id === editingPathToGreen);
+      if (!task) return;
+
+      // Create a complete update object that preserves all original values
+      const updateData = {
+        name: task.name,
+        projectId: task.project_id,
+        assignee: task.assignee,
+        status: task.status,
+        rag: task.rag,
+        startDate: task.start_date,
+        dueDate: task.due_date,
+        daysAssigned: task.days_assigned,
+        daysTaken: task.days_taken,
+        description: task.description || '',
+        tauNotes: task.tau_notes || '',
+        pathToGreen: pathToGreenValue,
+        persona: task.persona || '',
+        isSubTask: task.is_sub_task || false,
+        parentTaskId: task.parent_task_id || null,
+      };
+
+      await taskService.update(task.id, updateData);
+
+      // Update local state
+      setTasks(
+        tasks.map((t) =>
+          t.id === task.id ? { ...t, path_to_green: pathToGreenValue } : t
+        )
+      );
+      showNotification('Path to Green updated successfully');
+      setEditingPathToGreen(null);
+    } catch (err) {
+      console.error('Error updating path to green:', err);
+      showNotification('Failed to update path to green', 'error');
+    }
+  };
+
+  // Handle persona dropdown change
+  const handlePersonaChange = async (taskId, newPersona) => {
+    try {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      // Create a complete update object that preserves all original values
+      const updateData = {
+        name: task.name,
+        projectId: task.project_id,
+        assignee: task.assignee,
+        status: task.status,
+        rag: task.rag,
+        startDate: task.start_date,
+        dueDate: task.due_date,
+        daysAssigned: task.days_assigned,
+        daysTaken: task.days_taken,
+        description: task.description || '',
+        tauNotes: task.tau_notes || '',
+        pathToGreen: task.path_to_green || '',
+        persona: newPersona,
+        isSubTask: task.is_sub_task || false,
+        parentTaskId: task.parent_task_id || null,
+      };
+
+      await taskService.update(task.id, updateData);
+
+      // Update local state
+      setTasks(
+        tasks.map((t) => (t.id === task.id ? { ...t, persona: newPersona } : t))
+      );
+      showNotification('Persona updated successfully');
+    } catch (err) {
+      console.error('Error updating persona:', err);
+      showNotification('Failed to update persona', 'error');
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -150,6 +367,7 @@ function TasksPage() {
         projects: projectOptions,
         assignees: assigneeOptions,
         statuses: statusOptions,
+        personas: PERSONA_OPTIONS.map((p) => p.value),
       });
 
       setTasks(enhancedTasks);
@@ -221,6 +439,16 @@ function TasksPage() {
       });
     }
 
+    // Filter by persona
+    if (filters.persona) {
+      result = result.filter((task) => task.persona === filters.persona);
+    }
+
+    // Filter by sub-task status
+    if (filters.subTask) {
+      result = result.filter((task) => task.is_sub_task === true);
+    }
+
     setFilteredTasks(result);
   };
 
@@ -229,6 +457,14 @@ function TasksPage() {
     setFilters((prev) => ({
       ...prev,
       [field]: event.target.value,
+    }));
+  };
+
+  // Special handler for boolean filters (checkboxes)
+  const handleBooleanFilterChange = (field) => (event) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: event.target.checked,
     }));
   };
 
@@ -241,6 +477,8 @@ function TasksPage() {
       status: '',
       rag: '',
       dueDate: '',
+      persona: '',
+      subTask: false,
     });
   };
 
@@ -374,6 +612,11 @@ function TasksPage() {
         daysAssigned: currentTask.days_assigned,
         daysTaken: newDaysTaken,
         description: currentTask.description || '',
+        tauNotes: currentTask.tau_notes || '',
+        pathToGreen: currentTask.path_to_green || '',
+        persona: currentTask.persona || '',
+        isSubTask: currentTask.is_sub_task || false,
+        parentTaskId: currentTask.parent_task_id || null,
         // No need to send lastUpdatedDays, the backend will set it automatically
       };
 
@@ -451,6 +694,12 @@ function TasksPage() {
     }
   };
 
+  // Find persona label from value
+  const getPersonaLabel = (value) => {
+    const persona = PERSONA_OPTIONS.find((p) => p.value === value);
+    return persona ? persona.label : '';
+  };
+
   if (loading && tasks.length === 0) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -460,6 +709,348 @@ function TasksPage() {
   }
 
   const displayTasks = filteredTasks.length > 0 ? filteredTasks : tasks;
+
+  // Custom row rendering function for the ResizableTable
+  const renderRow = (task, columnWidths) => {
+    // Return array of TableCell components for the task
+    return columns.map((column) => {
+      // Set the width from columnWidths or default
+      const width = columnWidths[column.id] || column.width || 150;
+
+      // Render appropriate cell based on column id
+      switch (column.id) {
+        case 'name':
+          return (
+            <TableCell
+              key={column.id}
+              sx={{
+                width: width,
+                maxWidth: width,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                backgroundColor: task.is_sub_task
+                  ? 'rgba(0, 0, 0, 0.04)'
+                  : 'inherit',
+                paddingLeft: task.is_sub_task ? 4 : 2,
+              }}
+            >
+              {task.is_sub_task && (
+                <SubdirectoryArrowRightIcon
+                  fontSize="small"
+                  sx={{
+                    mr: 1,
+                    verticalAlign: 'middle',
+                    color: 'text.secondary',
+                  }}
+                />
+              )}
+              {task.name}
+              {task.description && (
+                <Tooltip title={task.description} arrow>
+                  <InfoOutlinedIcon
+                    fontSize="small"
+                    color="action"
+                    sx={{ ml: 1, verticalAlign: 'middle' }}
+                  />
+                </Tooltip>
+              )}
+            </TableCell>
+          );
+
+        case 'subTask':
+          return (
+            <TableCell
+              key={column.id}
+              align="center"
+              sx={{ width: width, maxWidth: width }}
+            >
+              {task.is_sub_task ? (
+                <CheckCircleOutlineIcon color="primary" fontSize="small" />
+              ) : null}
+            </TableCell>
+          );
+
+        case 'project':
+          return (
+            <TableCell
+              key={column.id}
+              sx={{
+                width: width,
+                maxWidth: width,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {task.project_name}
+            </TableCell>
+          );
+
+        case 'assignee':
+          return (
+            <TableCell
+              key={column.id}
+              sx={{
+                width: width,
+                maxWidth: width,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {task.assignee}
+            </TableCell>
+          );
+
+        case 'status':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              <Chip
+                label={task.status}
+                color={getStatusColor(task.status)}
+                size="small"
+              />
+            </TableCell>
+          );
+
+        case 'rag':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              <Tooltip
+                title={
+                  task.timeInfo
+                    ? `Buffer: ${task.timeInfo.buffer.toFixed(1)} working days.
+                   ${task.timeInfo.daysRemaining} days of work remaining with 
+                   ${task.timeInfo.businessDaysUntilDue.toFixed(
+                     1
+                   )} working days until due.
+                   Assignee works ${
+                     task.timeInfo.workingDaysPerWeek || 5
+                   } days per week.
+                   Holidays in period: ${task.timeInfo.holidayCount || 0}`
+                    : 'RAG status'
+                }
+                arrow
+              >
+                <Chip
+                  label={
+                    task.timeInfo.calculatedRag === 1
+                      ? 'Green'
+                      : task.timeInfo.calculatedRag === 2
+                      ? 'Amber'
+                      : 'Red'
+                  }
+                  color={getRagColor(task.timeInfo.calculatedRag)}
+                  size="small"
+                />
+              </Tooltip>
+            </TableCell>
+          );
+
+        case 'persona':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              <FormControl size="small" fullWidth>
+                <Select
+                  value={task.persona || ''}
+                  onChange={(e) => handlePersonaChange(task.id, e.target.value)}
+                  displayEmpty
+                  size="small"
+                  variant="outlined"
+                  sx={{ maxWidth: width - 16 }}
+                >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  {PERSONA_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </TableCell>
+          );
+
+        case 'dueDate':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              {task.due_date
+                ? new Date(task.due_date).toLocaleDateString()
+                : '-'}
+            </TableCell>
+          );
+
+        case 'timeUsage':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexDirection: 'column',
+                }}
+              >
+                <Box
+                  sx={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, mr: 2 }}>
+                    <TimeUsageDisplay
+                      daysAssigned={task.days_assigned}
+                      daysTaken={task.days_taken}
+                      ragStatus={task.timeInfo.calculatedRag}
+                    />
+                  </Box>
+                  {/* Quick update buttons */}
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={() => handleQuickUpdateDaysTaken(task, 1)}
+                    title="Add 1 day"
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={() => handleQuickUpdateDaysTaken(task, -1)}
+                    disabled={!task.days_taken}
+                    title="Remove 1 day"
+                  >
+                    <RemoveIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+
+                {/* Percentage complete */}
+                <Typography variant="caption" color="text.secondary">
+                  {task.timeInfo.percentComplete.toFixed(0)}% complete (
+                  {task.days_taken || 0}/{task.days_assigned || 0} days)
+                </Typography>
+              </Box>
+            </TableCell>
+          );
+
+        case 'pathToGreen':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              {editingPathToGreen === task.id ? (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <TextField
+                    value={pathToGreenValue}
+                    onChange={(e) => setPathToGreenValue(e.target.value)}
+                    size="small"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    placeholder="Enter path to green..."
+                    autoFocus
+                    onBlur={savePathToGreen}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        savePathToGreen();
+                      }
+                    }}
+                  />
+                </Box>
+              ) : (
+                <Box
+                  onClick={() =>
+                    handlePathToGreenEdit(task.id, task.path_to_green)
+                  }
+                  sx={{
+                    cursor: 'pointer',
+                    minHeight: '24px',
+                    p: 1,
+                    maxWidth: width - 16,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      borderRadius: 1,
+                    },
+                  }}
+                >
+                  {task.path_to_green || (
+                    <Typography variant="caption" color="text.secondary">
+                      Click to add...
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </TableCell>
+          );
+
+        case 'notes':
+          return (
+            <TableCell
+              key={column.id}
+              align="center"
+              sx={{ width: width, maxWidth: width }}
+            >
+              <IconButton
+                size="small"
+                onClick={(e) => handleTauNotesClick(e, task)}
+                color={task.tau_notes ? 'primary' : 'default'}
+              >
+                <NotesIcon />
+              </IconButton>
+            </TableCell>
+          );
+
+        case 'lastUpdated':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              {task.last_updated_days ? (
+                <Tooltip
+                  title={new Date(task.last_updated_days).toLocaleString()}
+                >
+                  <span>{timeAgo(new Date(task.last_updated_days))}</span>
+                </Tooltip>
+              ) : (
+                'Never'
+              )}
+            </TableCell>
+          );
+
+        case 'actions':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={() => handleOpenEditForm(task)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => handleOpenDeleteDialog(task)}
+                >
+                  Delete
+                </Button>
+              </Stack>
+            </TableCell>
+          );
+
+        default:
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              {task[column.id]}
+            </TableCell>
+          );
+      }
+    });
+  };
 
   return (
     <Box>
@@ -522,10 +1113,7 @@ function TasksPage() {
 
               <Grid item xs={12} sm={6} md={4} lg={2}>
                 <FormControl fullWidth variant="outlined">
-                  <InputLabel
-                    id="project-filter-label"
-                    shrink={true} // Forces the label to always be in the "shrunk" position
-                  >
+                  <InputLabel id="project-filter-label" shrink={true}>
                     Project
                   </InputLabel>
                   <Select
@@ -534,7 +1122,7 @@ function TasksPage() {
                     onChange={handleFilterChange('project')}
                     label="Project"
                     displayEmpty
-                    notched={true} // Ensures the label outline is always notched for the label
+                    notched={true}
                   >
                     <MenuItem value="">All Projects</MenuItem>
                     {filterOptions.projects.map((project) => (
@@ -543,7 +1131,7 @@ function TasksPage() {
                       </MenuItem>
                     ))}
                   </Select>
-                </FormControl>{' '}
+                </FormControl>
               </Grid>
 
               <Grid item xs={12} sm={6} md={4} lg={2}>
@@ -566,7 +1154,7 @@ function TasksPage() {
                       </MenuItem>
                     ))}
                   </Select>
-                </FormControl>{' '}
+                </FormControl>
               </Grid>
 
               <Grid item xs={12} sm={6} md={4} lg={2}>
@@ -589,7 +1177,7 @@ function TasksPage() {
                       </MenuItem>
                     ))}
                   </Select>
-                </FormControl>{' '}
+                </FormControl>
               </Grid>
 
               <Grid item xs={12} sm={6} md={4} lg={2}>
@@ -610,7 +1198,7 @@ function TasksPage() {
                     <MenuItem value="2">Amber</MenuItem>
                     <MenuItem value="3">Red</MenuItem>
                   </Select>
-                </FormControl>{' '}
+                </FormControl>
               </Grid>
 
               <Grid item xs={12} sm={6} md={4} lg={2}>
@@ -641,6 +1229,50 @@ function TasksPage() {
                 />
               </Grid>
 
+              {/* New Persona Filter */}
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="persona-filter-label" shrink={true}>
+                    Persona
+                  </InputLabel>
+                  <Select
+                    labelId="persona-filter-label"
+                    value={filters.persona}
+                    onChange={handleFilterChange('persona')}
+                    label="Persona"
+                    displayEmpty
+                    notched={true}
+                  >
+                    <MenuItem value="">All Personas</MenuItem>
+                    {PERSONA_OPTIONS.map((persona) => (
+                      <MenuItem key={persona.value} value={persona.value}>
+                        {persona.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Sub-task filter (checkbox) */}
+              <Grid item xs={12} sm={6} md={4} lg={2}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={filters.subTask}
+                      onChange={(e) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          subTask: e.target.checked,
+                        }))
+                      }
+                      name="subTaskFilter"
+                      color="primary"
+                    />
+                  }
+                  label="Sub-tasks only"
+                />
+              </Grid>
+
               <Grid item xs={12} display="flex" justifyContent="flex-end">
                 <Button
                   variant="outlined"
@@ -654,6 +1286,7 @@ function TasksPage() {
           </CardContent>
         </Card>
       </Collapse>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
@@ -661,7 +1294,7 @@ function TasksPage() {
       )}
 
       {/* Display filtered count if filtering is active */}
-      {Object.values(filters).some((f) => f !== '') && (
+      {Object.values(filters).some((f) => f !== '' && f !== false) && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2">
             Showing {filteredTasks.length} of {tasks.length} tasks
@@ -673,167 +1306,59 @@ function TasksPage() {
         <Typography>No tasks found. Create your first task!</Typography>
       ) : !loading &&
         filteredTasks.length === 0 &&
-        Object.values(filters).some((f) => f !== '') ? (
+        Object.values(filters).some((f) => f !== '' && f !== false) ? (
         <Alert severity="info" sx={{ mb: 2 }}>
           No tasks match the current filters. Try adjusting your filter
           criteria.
         </Alert>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Task</TableCell>
-                <TableCell>Project</TableCell>
-                <TableCell>Assignee</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    RAG
-                    <Tooltip
-                      title="Automatically calculated based on days assigned, days taken, assignee working days, and holidays"
-                      arrow
-                    >
-                      <IconButton size="small">
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </TableCell>
-                <TableCell>Due Date</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    Time Usage
-                    <Tooltip title="Shows days taken vs days assigned" arrow>
-                      <IconButton size="small">
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </TableCell>
-                <TableCell>Last Updated</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {displayTasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell>{task.name}</TableCell>
-                  <TableCell>{task.project_name}</TableCell>
-                  <TableCell>{task.assignee}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={task.status}
-                      color={getStatusColor(task.status)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip
-                      title={
-                        task.timeInfo
-                          ? `Buffer: ${task.timeInfo.buffer.toFixed(
-                              1
-                            )} working days.
-                         ${
-                           task.timeInfo.daysRemaining
-                         } days of work remaining with 
-                         ${task.timeInfo.businessDaysUntilDue.toFixed(
-                           1
-                         )} working days until due.
-                         Assignee works ${
-                           task.timeInfo.workingDaysPerWeek || 5
-                         } days per week.
-                         Holidays in period: ${task.timeInfo.holidayCount || 0}`
-                          : 'RAG status'
-                      }
-                      arrow
-                    >
-                      <Chip
-                        label={
-                          task.timeInfo.calculatedRag === 1
-                            ? 'Green'
-                            : task.timeInfo.calculatedRag === 2
-                            ? 'Amber'
-                            : 'Red'
-                        }
-                        color={getRagColor(task.timeInfo.calculatedRag)}
-                        size="small"
-                      />
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    {task.due_date
-                      ? new Date(task.due_date).toLocaleDateString()
-                      : '-'}
-                  </TableCell>
-                  <TableCell width="200px">
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ flexGrow: 1, mr: 2 }}>
-                        <TimeUsageDisplay
-                          daysAssigned={task.days_assigned}
-                          daysTaken={task.days_taken}
-                          ragStatus={task.timeInfo.calculatedRag}
-                        />
-                      </Box>
-                      {/* Quick update buttons */}
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleQuickUpdateDaysTaken(task, 1)}
-                        title="Add 1 day"
-                      >
-                        <AddIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleQuickUpdateDaysTaken(task, -1)}
-                        disabled={!task.days_taken}
-                        title="Remove 1 day"
-                      >
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    {task.last_updated_days ? (
-                      <Tooltip
-                        title={new Date(
-                          task.last_updated_days
-                        ).toLocaleString()}
-                      >
-                        <span>{timeAgo(new Date(task.last_updated_days))}</span>
-                      </Tooltip>
-                    ) : (
-                      'Never'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1}>
-                      <Button
-                        size="small"
-                        startIcon={<EditIcon />}
-                        onClick={() => handleOpenEditForm(task)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => handleOpenDeleteDialog(task)}
-                      >
-                        Delete
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        // Replace the TableContainer with ResizableTable
+        <ResizableTable
+          columns={columns}
+          rows={displayTasks}
+          renderRow={renderRow}
+          storageKey="taskColumnWidths"
+          defaultColumnWidth={150}
+        />
       )}
+
+      {/* Tau Notes Popover */}
+      <Popover
+        open={Boolean(tauNotesAnchorEl)}
+        anchorEl={tauNotesAnchorEl}
+        onClose={handleTauNotesClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+      >
+        <Box sx={{ p: 2, width: 350 }}>
+          <Typography variant="h6" gutterBottom>
+            Tau Notes
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            value={currentTauNotes}
+            onChange={(e) => setCurrentTauNotes(e.target.value)}
+            placeholder="Enter notes here..."
+            sx={{ mb: 2 }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button onClick={handleTauNotesClose} sx={{ mr: 1 }}>
+              Cancel
+            </Button>
+            <Button variant="contained" color="primary" onClick={saveTauNotes}>
+              Save
+            </Button>
+          </Box>
+        </Box>
+      </Popover>
 
       <TaskForm
         open={openForm}

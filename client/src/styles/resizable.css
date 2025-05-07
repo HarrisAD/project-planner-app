@@ -1,0 +1,57 @@
+/* client/src/styles/resizable.css */
+
+.react-resizable {
+  position: relative;
+}
+
+.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 100%;
+  bottom: 0;
+  right: -10px;
+  cursor: col-resize;
+  z-index: 999;
+}
+
+.react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 9px;
+  top: 25%;
+  height: 50%;
+  width: 2px;
+  background-color: #aaa;
+}
+
+.react-resizable-handle:hover::after {
+  background-color: #2196f3;
+}
+
+/* Make sure the handle is visible during drag */
+.react-resizable-handle:active::after {
+  background-color: #2196f3;
+  width: 3px;
+}
+
+/* Make sure the table doesn't break during resize */
+table {
+  table-layout: fixed;
+}
+
+/* Add this style to ensure the drag handle is always visible */
+th .react-resizable-handle {
+  opacity: 0.5;
+}
+
+th:hover .react-resizable-handle {
+  opacity: 1;
+}
+
+/* Ensure cell content doesn't overflow */
+td,
+th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
