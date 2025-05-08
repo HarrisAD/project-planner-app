@@ -1256,13 +1256,14 @@ function TasksPage() {
     <Box>
       <Box
         sx={{
-          height: '100vh', // Full viewport height
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          mb: 3,
         }}
       >
-        <Typography variant="h4">Tasks</Typography>
+        <Typography variant="h4" sx={{ mb: 2 }}>
+          Tasks
+        </Typography>
         <Stack direction="row" spacing={2}>
           <Button
             variant="outlined"
@@ -1282,13 +1283,28 @@ function TasksPage() {
           </Button>
         </Stack>
       </Box>
-
       {/* Filter Panel */}
       <Collapse in={filtersOpen}>
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(12, 1fr)',
+                gap: 2,
+                alignItems: 'center',
+              }}
+            >
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <TextField
                   label="Task Name"
                   variant="outlined"
@@ -1316,9 +1332,18 @@ function TasksPage() {
                     ) : null,
                   }}
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <FormControl fullWidth variant="outlined">
                   <InputLabel id="project-filter-label" shrink={true}>
                     Project
@@ -1339,9 +1364,18 @@ function TasksPage() {
                     ))}
                   </Select>
                 </FormControl>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <FormControl fullWidth variant="outlined">
                   <InputLabel id="assignee-filter-label" shrink={true}>
                     Assignee
@@ -1362,9 +1396,18 @@ function TasksPage() {
                     ))}
                   </Select>
                 </FormControl>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <FormControl fullWidth variant="outlined">
                   <InputLabel id="status-filter-label" shrink={true}>
                     Status
@@ -1385,9 +1428,18 @@ function TasksPage() {
                     ))}
                   </Select>
                 </FormControl>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <FormControl fullWidth variant="outlined">
                   <InputLabel id="rag-filter-label" shrink={true}>
                     RAG Status
@@ -1406,9 +1458,18 @@ function TasksPage() {
                     <MenuItem value="3">Red</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <TextField
                   label="Due Date"
                   type="date"
@@ -1434,10 +1495,19 @@ function TasksPage() {
                     ) : null,
                   }}
                 />
-              </Grid>
+              </Box>
 
               {/* New Persona Filter */}
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <FormControl fullWidth variant="outlined">
                   <InputLabel id="persona-filter-label" shrink={true}>
                     Persona
@@ -1458,10 +1528,19 @@ function TasksPage() {
                     ))}
                   </Select>
                 </FormControl>
-              </Grid>
+              </Box>
 
               {/* Sub Task Name filter */}
-              <Grid item xs={12} sm={6} md={4} lg={2}>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <TextField
                   label="Sub Task"
                   variant="outlined"
@@ -1489,8 +1568,17 @@ function TasksPage() {
                     ) : null,
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} display="flex" justifyContent="flex-end">
+              </Box>
+              <Box
+                sx={{
+                  gridColumn: {
+                    xs: 'span 12',
+                    sm: 'span 6',
+                    md: 'span 4',
+                    lg: 'span 2',
+                  },
+                }}
+              >
                 <Button
                   variant="outlined"
                   onClick={clearFilters}
@@ -1498,8 +1586,8 @@ function TasksPage() {
                 >
                   Clear All Filters
                 </Button>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
           </CardContent>
         </Card>
       </Collapse>
@@ -1532,12 +1620,12 @@ function TasksPage() {
         // Replace the TableContainer with ResizableTable
         <Box
           sx={{
-            flexGrow: 1,
-            overflow: 'hidden',
             width: '100%',
+            height: 'calc(100vh - 250px)',
             position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
+            overflow: 'hidden',
+            maxWidth: '100%', // Ensure it doesn't exceed container width
+            mx: 0, // Remove any margins
           }}
         >
           <ResizableTable
@@ -1547,7 +1635,7 @@ function TasksPage() {
             storageKey="taskColumnWidths"
             defaultColumnWidth={150}
             onSort={handleSort}
-            sx={{ position: 'absolute', inset: 0 }} // Added inline styles
+            sx={{ width: '100%' }} // Make the table fill the container
           />
         </Box>
       )}
