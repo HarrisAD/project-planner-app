@@ -5,7 +5,7 @@ A comprehensive web-based project planning application that replaces Excel-based
 ## Current Status
 
 **Last Updated**: May 2025  
-**Version**: 0.9.5
+**Version**: 1.0.0
 
 ## Tech Stack
 
@@ -65,114 +65,50 @@ project-planner-app/
 └── docs/                 # Documentation
 ```
 
-## Implementation Progress
+## Features
 
-### Phase 1: Basic Setup & Infrastructure ✅ (100% Complete)
+### Dashboard
 
-- [x] Project initialization
-- [x] Database setup
-- [x] Basic Express server with health check
-- [x] Basic React app with Material-UI
-- [x] Component structure (Dashboard, Projects, Tasks)
-- [x] Project and Task forms
-- [x] Mock data services
-- [x] Frontend-backend connection
-- [x] Basic CRUD operations for projects and tasks
+- **Project Summary**: Overview of all projects with progress indicators and RAG status
+- **Amber/Red Tasks**: Display of at-risk tasks that need attention
+- **Upcoming Tasks**: Tasks due before a specified date with filterable deadline
+- **Resource Allocation**: Summary of team member allocation over different time periods
 
-### Phase 2: Core Feature Development ✅ (100% Complete)
-
-- [x] Edit/Delete functionality for projects and tasks
-- [x] Project progress calculation based on task completion
-- [x] Success/error notifications
-- [x] Database transaction support
-- [x] Cross-project updates for task reassignment
-- [x] Form validation and error handling
-
-### Phase 3: Advanced Features ✅ (100% Complete)
-
-- [x] Task time tracking (days taken vs assigned)
-- [x] Automatic RAG status calculation based on time tracking
-- [x] Automatic task status transitions based on time data
-- [x] Last updated tracking for time data
-- [x] "On Hold" detection for stale tasks
-- [x] Assignee management with working days per week
-- [x] Holiday management (individual days and date ranges)
-- [x] Public holidays support with country codes
-- [x] Enhanced risk assessment accounting for holidays
-
-### Phase 4: Resource Planning ✅ (100% Complete)
-
-- [x] Resource allocation views
-- [x] Team member workload analysis
-- [x] Capacity planning tools
-- [x] Resource calendar view
-- [x] Intelligent allocation algorithms
-- [x] Over/under allocation detection
-
-### Phase 5: UI Enhancements ✅ (100% Complete)
-
-- [x] Resizable table columns with width persistence
-- [x] Enhanced project view with resource allocation metrics
-- [x] Persona-based resource tracking
-- [x] Inline editing for task metadata
-- [x] Progress visualization with percentage bars
-- [x] Compact resource allocation views
-- [x] Full-width table layouts for better data visibility
-
-### Phase 6: Data Management & Filtering ⏳ (70% Complete)
-
-- [x] Advanced task filtering by multiple criteria
-- [x] Resource filtering and grouping
-- [x] Enhanced UI for filter controls
-- [ ] Excel import/export functionality
-- [ ] Email notifications
-- [ ] Reporting and analytics
-
-### Phase 7: Authentication & Access Control (Planned)
-
-- [ ] User model and authentication
-- [ ] Role-based access control
-- [ ] Team management
-- [ ] User preferences
-- [ ] Activity logging
-
-## Core Features
-
-### 1. Project Management
+### Project Management
 
 - Create, edit, and delete projects
 - Track project progress automatically based on task completion
 - RAG (Red, Amber, Green) status system for risk assessment
-- Project overview dashboard
-- Resource allocation tracking by persona type
+- Resource allocation tracking by persona type (Exec Sponsor, Developer, etc.)
 - Progress calculation based on completed work vs assigned work
 
-### 2. Task Management
+### Task Management
 
 - Create, edit, and delete tasks with sub-task capabilities
 - Assign tasks to team members from a managed assignee list
-- Categorize tasks by persona type (Exec Sponsor, Developer, etc.)
+- Categorize tasks by persona type
 - Time tracking with days assigned vs. days taken
 - Automatic status transitions based on progress
 - Quick time tracking updates with +/- buttons
 - Comprehensive task filtering by multiple criteria
 - Resizable table columns for optimized viewing
+- Path to green tracking for amber/red tasks
 
-### 3. Assignee Management
+### Assignee Management
 
 - Maintain a list of team members with their details
 - Track working days per week for each assignee
 - Record start dates for accurate capacity planning
 - Controlled task assignment using the assignee list
 
-### 4. Time Off & Holiday Management
+### Time Off & Holiday Management
 
 - Record individual holidays for each team member
 - Add holiday ranges for extended leave periods
 - Manage public holidays with country code support
 - Tabbed interface for easy management
 
-### 5. Intelligent Risk Assessment
+### Intelligent Risk Assessment
 
 - Automated RAG status calculation based on:
   - Days taken vs. days assigned
@@ -181,7 +117,7 @@ project-planner-app/
   - Individual and public holidays
   - Time since last update (for "On Hold" detection)
 
-### 6. Resource Allocation
+### Resource Allocation
 
 - Comprehensive resource allocation dashboard
 - Workload analysis by team member
@@ -233,7 +169,7 @@ The application implements a comprehensive time tracking system across multiple 
 
 - **Progress Calculation**:
 
-  - Project progress is now calculated as total days used / total days assigned across all tasks
+  - Project progress is calculated as total days used / total days assigned across all tasks
   - This provides a more accurate reflection of overall project completion
 
 - **Resource Allocation Tracking**:
@@ -249,6 +185,12 @@ The application implements a comprehensive time tracking system across multiple 
   - Project RAG automatically updates when task RAG status changes
 
 ## Recent Enhancements
+
+### Enhanced Dashboard
+
+- **Amber/Red Tasks**: Quick view of all at-risk tasks across projects
+- **Upcoming Tasks**: Due date-based filtering with deadline view
+- **Resource Allocation Summary**: Team allocation visualization across time periods
 
 ### Improved Table UI
 

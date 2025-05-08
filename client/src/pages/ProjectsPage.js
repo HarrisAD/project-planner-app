@@ -104,6 +104,13 @@ function ProjectsPage() {
               allocation.programme_manager_assigned += daysAssigned;
               allocation.programme_manager_used += daysTaken;
               break;
+            default:
+              // If an unknown persona type is encountered, just add it to the total
+              console.log(`Unknown persona type encountered: ${task.persona}`);
+              // You can choose to either ignore it or add to totals only
+              allocation.total_assigned += daysAssigned;
+              allocation.total_used += daysTaken;
+              break;
           }
         }
       });
@@ -158,8 +165,8 @@ function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   const handleCreateProject = async (projectData) => {
     try {
       await projectService.create(projectData);
@@ -272,8 +279,18 @@ function ProjectsPage() {
   const renderResourceAllocation = (assigned, used) => {
     const assignedValue = Math.round(assigned || 0);
     const usedValue = Math.round(used || 0);
-    const percentage =
-      assignedValue > 0 ? (usedValue / assignedValue) * 100 : 0;
+
+    // If no days assigned, show "N/A" instead of a progress bar
+    if (assignedValue === 0) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          N/A
+        </Typography>
+      );
+    }
+
+    // Otherwise, show the normal progress bar
+    const percentage = (usedValue / assignedValue) * 100;
 
     return (
       <Tooltip
@@ -296,7 +313,6 @@ function ProjectsPage() {
       </Tooltip>
     );
   };
-
   // Helper function to render total days without progress bar
   const renderTotalDays = (assigned, used) => {
     const assignedValue = Math.round(assigned || 0);
