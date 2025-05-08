@@ -35,9 +35,11 @@ function MainLayout() {
         </Toolbar>
       </AppBar>
 
-      <Container sx={{ mt: 4 }}>
+      <Box sx={{ flexGrow: 1, p: 3 }}>
+        {' '}
+        {/* Replace Container with Box */}
         <Outlet />
-      </Container>
+      </Box>
     </Box>
   );
 }

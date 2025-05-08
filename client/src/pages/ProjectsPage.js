@@ -14,11 +14,13 @@ import {
   Paper,
   Chip,
   Stack,
+  LinearProgress,
+  Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { projectService } from '../services/api';
+import { projectService, taskService } from '../services/api';
 import ProjectForm from '../components/projects/ProjectForm';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useNotification } from '../context/NotificationContext';
@@ -34,11 +36,117 @@ function ProjectsPage() {
   const [projectToDelete, setProjectToDelete] = useState(null);
   const { showNotification } = useNotification();
 
+  // Calculate resource allocation from tasks for all projects
+  const calculateResourceAllocation = async (projects) => {
+    try {
+      // Fetch all tasks
+      const response = await taskService.getAll();
+      const allTasks = response.data;
+
+      // Create a map to store allocation data by project
+      const projectAllocations = {};
+
+      // Initialize allocation data for each project
+      projects.forEach((project) => {
+        projectAllocations[project.id] = {
+          exec_sponsor_assigned: 0,
+          exec_sponsor_used: 0,
+          exec_lead_assigned: 0,
+          exec_lead_used: 0,
+          developer_assigned: 0,
+          developer_used: 0,
+          consultant_assigned: 0,
+          consultant_used: 0,
+          programme_manager_assigned: 0,
+          programme_manager_used: 0,
+          total_assigned: 0,
+          total_used: 0,
+        };
+      });
+
+      // Calculate allocations from tasks
+      allTasks.forEach((task) => {
+        // Skip if no project ID
+        if (!task.project_id) return;
+
+        // Get allocation data for this project
+        const allocation = projectAllocations[task.project_id];
+        if (!allocation) return;
+
+        // Add task data to appropriate persona category
+        const daysAssigned = Number(task.days_assigned) || 0;
+        const daysTaken = Number(task.days_taken) || 0;
+
+        // Always add to project totals
+        allocation.total_assigned += daysAssigned;
+        allocation.total_used += daysTaken;
+
+        // Also add to persona-specific totals if persona is defined
+        if (task.persona) {
+          switch (task.persona) {
+            case 'exec_sponsor':
+              allocation.exec_sponsor_assigned += daysAssigned;
+              allocation.exec_sponsor_used += daysTaken;
+              break;
+            case 'exec_lead':
+              allocation.exec_lead_assigned += daysAssigned;
+              allocation.exec_lead_used += daysTaken;
+              break;
+            case 'developer':
+              allocation.developer_assigned += daysAssigned;
+              allocation.developer_used += daysTaken;
+              break;
+            case 'consultant':
+              allocation.consultant_assigned += daysAssigned;
+              allocation.consultant_used += daysTaken;
+              break;
+            case 'programme_manager':
+              allocation.programme_manager_assigned += daysAssigned;
+              allocation.programme_manager_used += daysTaken;
+              break;
+          }
+        }
+      });
+
+      // For debugging
+      console.log('Allocation data:', projectAllocations);
+
+      // Merge allocation data into projects and calculate new progress
+      return projects.map((project) => {
+        const allocation = projectAllocations[project.id];
+
+        // Calculate progress as percentage of total days used / assigned
+        let newProgress = 0;
+        if (allocation.total_assigned > 0) {
+          newProgress = allocation.total_used / allocation.total_assigned;
+        }
+
+        console.log(
+          `Project ${project.id} total: ${allocation.total_used}/${allocation.total_assigned}, progress: ${newProgress}`
+        );
+
+        return {
+          ...project,
+          ...allocation,
+          progress: newProgress, // Override the original progress with our calculation
+        };
+      });
+    } catch (error) {
+      console.error('Error calculating resource allocation:', error);
+      return projects; // Return original projects if calculation fails
+    }
+  };
   const fetchProjects = async () => {
     try {
       setLoading(true);
       const response = await projectService.getAll();
-      setProjects(response.data);
+
+      // Calculate resource allocation for projects
+      const projectsWithAllocation = await calculateResourceAllocation(
+        response.data
+      );
+
+      setProjects(projectsWithAllocation);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to fetch projects');
@@ -160,6 +268,51 @@ function ProjectsPage() {
     }
   };
 
+  // Helper function to render resource allocation cell
+  const renderResourceAllocation = (assigned, used) => {
+    const assignedValue = Math.round(assigned || 0);
+    const usedValue = Math.round(used || 0);
+    const percentage =
+      assignedValue > 0 ? (usedValue / assignedValue) * 100 : 0;
+
+    return (
+      <Tooltip
+        title={`${usedValue} of ${assignedValue} days used (${Math.round(
+          percentage
+        )}%)`}
+      >
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Typography variant="body2">
+              {usedValue}/{assignedValue}
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={Math.min(100, percentage)}
+            sx={{ height: 8, borderRadius: 4 }}
+          />
+        </Box>
+      </Tooltip>
+    );
+  };
+
+  // Helper function to render total days without progress bar
+  const renderTotalDays = (assigned, used) => {
+    const assignedValue = Math.round(assigned || 0);
+    const usedValue = Math.round(used || 0);
+
+    return (
+      <Tooltip
+        title={`${usedValue} of ${assignedValue} total days used across all personas`}
+      >
+        <Typography variant="body2">
+          {usedValue}/{assignedValue}
+        </Typography>
+      </Tooltip>
+    );
+  };
+
   if (loading && projects.length === 0) return <CircularProgress />;
 
   return (
@@ -185,24 +338,53 @@ function ProjectsPage() {
       {!loading && projects.length === 0 ? (
         <Typography>No projects found. Create your first project!</Typography>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer
+          component={Paper}
+          sx={{ overflow: 'auto', maxWidth: '100%' }}
+        >
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Project Name</TableCell>
                 <TableCell>Company</TableCell>
+                <TableCell>Project Name</TableCell>
+                <TableCell>Description</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>RAG</TableCell>
                 <TableCell>Progress</TableCell>
+                <TableCell>RAG</TableCell>
+                <TableCell>Total Days</TableCell>
+                <TableCell>Exec Sponsor</TableCell>
+                <TableCell>Exec Lead</TableCell>
+                <TableCell>Developer</TableCell>
+                <TableCell>Consultant</TableCell>
+                <TableCell>Programme Manager</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {projects.map((project) => (
                 <TableRow key={project.id}>
-                  <TableCell>{project.name}</TableCell>
                   <TableCell>{project.company}</TableCell>
+                  <TableCell>{project.name}</TableCell>
+                  <TableCell>{project.description || '—'}</TableCell>
                   <TableCell>{project.status}</TableCell>
+                  <TableCell>
+                    <Box sx={{ width: '100%', mr: 1 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.min(
+                          100,
+                          Math.round((project.progress || 0) * 100)
+                        )}
+                        sx={{ height: 8, borderRadius: 4 }}
+                      />
+                      <Typography
+                        variant="body2"
+                        sx={{ mt: 0.5, textAlign: 'center' }}
+                      >
+                        {Math.round((project.progress || 0) * 100)}%
+                      </Typography>
+                    </Box>
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={getRagLabel(project.rag)}
@@ -211,7 +393,40 @@ function ProjectsPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    {Math.round((project.progress || 0) * 100)}%
+                    {renderTotalDays(
+                      project.total_assigned,
+                      project.total_used
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {renderResourceAllocation(
+                      project.exec_sponsor_assigned,
+                      project.exec_sponsor_used
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {renderResourceAllocation(
+                      project.exec_lead_assigned,
+                      project.exec_lead_used
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {renderResourceAllocation(
+                      project.developer_assigned,
+                      project.developer_used
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {renderResourceAllocation(
+                      project.consultant_assigned,
+                      project.consultant_used
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {renderResourceAllocation(
+                      project.programme_manager_assigned,
+                      project.programme_manager_used
+                    )}
                   </TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1}>
