@@ -68,6 +68,8 @@ function TasksPage() {
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { showNotification } = useNotification();
+  const [editingSubTaskName, setEditingSubTaskName] = useState(null);
+  const [subTaskNameValue, setSubTaskNameValue] = useState('');
 
   // State for inline editable fields
   const [editingPathToGreen, setEditingPathToGreen] = useState(null);
@@ -80,13 +82,13 @@ function TasksPage() {
   // Filter state
   const [filters, setFilters] = useState({
     name: '',
+    subTaskName: '', // Changed from subTask: false
     project: '',
     assignee: '',
     status: '',
     rag: '',
     dueDate: '',
-    persona: '', // Added persona filter
-    subTask: false, // Added sub-task filter
+    persona: '',
   });
 
   // Filter options (derived from task data)
@@ -100,7 +102,7 @@ function TasksPage() {
   // Define table columns
   const columns = [
     { id: 'name', label: 'Task', width: 200 },
-    { id: 'subTask', label: 'Sub Task', width: 80 },
+    { id: 'subTaskName', label: 'Sub Task', width: 150 },
     { id: 'project', label: 'Project', width: 150 },
     { id: 'assignee', label: 'Assignee', width: 120 },
     { id: 'status', label: 'Status', width: 120 },
@@ -147,7 +149,66 @@ function TasksPage() {
     { id: 'lastUpdated', label: 'Last Updated', width: 120 },
     { id: 'actions', label: 'Actions', width: 150 },
   ];
+  // Handle Sub Task Name inline editing
+  const handleSubTaskNameEdit = (taskId, currentValue) => {
+    console.log(
+      'Editing sub-task name for task ID:',
+      taskId,
+      'Current value:',
+      currentValue
+    );
+    setEditingSubTaskName(taskId);
+    setSubTaskNameValue(currentValue || '');
+  };
 
+  const saveSubTaskName = async () => {
+    if (!editingSubTaskName) return;
+
+    try {
+      const task = tasks.find((t) => t.id === editingSubTaskName);
+      if (!task) return;
+
+      // Create a complete update object that preserves all original values
+      const updateData = {
+        name: task.name,
+        subTaskName: subTaskNameValue,
+        projectId: task.project_id,
+        assignee: task.assignee,
+        status: task.status,
+        rag: task.rag,
+        startDate: task.start_date,
+        dueDate: task.due_date,
+        daysAssigned: task.days_assigned,
+        daysTaken: task.days_taken,
+        description: task.description || '',
+        tauNotes: task.tau_notes || '',
+        pathToGreen: task.path_to_green || '',
+        persona: task.persona || '',
+      };
+
+      await taskService.update(task.id, updateData);
+
+      // Update local state
+      setTasks(
+        tasks.map((t) =>
+          t.id === task.id ? { ...t, sub_task_name: subTaskNameValue } : t
+        )
+      );
+      console.log(
+        'Updated tasks after editing sub-task:',
+        tasks.map((t) => ({
+          id: t.id,
+          name: t.name,
+          subTaskName: t.sub_task_name,
+        }))
+      );
+      showNotification('Sub Task Name updated successfully');
+      setEditingSubTaskName(null);
+    } catch (err) {
+      console.error('Error updating sub task name:', err);
+      showNotification('Failed to update sub task name', 'error');
+    }
+  };
   // Handle Tau Notes popover
   const handleTauNotesClick = (event, task) => {
     setTauNotesAnchorEl(event.currentTarget);
@@ -187,8 +248,7 @@ function TasksPage() {
         tauNotes: currentTauNotes,
         pathToGreen: task.path_to_green || '',
         persona: task.persona || '',
-        isSubTask: task.is_sub_task || false,
-        parentTaskId: task.parent_task_id || null,
+        subTaskName: task.sub_task_name || '',
       };
 
       await taskService.update(task.id, updateData);
@@ -445,10 +505,12 @@ function TasksPage() {
     }
 
     // Filter by sub-task status
-    if (filters.subTask) {
-      result = result.filter((task) => task.is_sub_task === true);
+    if (filters.subTaskName) {
+      const searchTerm = filters.subTaskName.toLowerCase();
+      result = result.filter((task) =>
+        task.sub_task_name?.toLowerCase().includes(searchTerm)
+      );
     }
-
     setFilteredTasks(result);
   };
 
@@ -472,13 +534,13 @@ function TasksPage() {
   const clearFilters = () => {
     setFilters({
       name: '',
+      subTaskName: '',
       project: '',
       assignee: '',
       status: '',
       rag: '',
       dueDate: '',
       persona: '',
-      subTask: false,
     });
   };
 
@@ -505,8 +567,11 @@ function TasksPage() {
     try {
       if (!currentTask) return;
 
-      console.log('Updating task with data:', taskData);
+      console.log('Updating task with data (including sub-task):', taskData);
+
+      // Make sure subTaskName is being included in your API call
       await taskService.update(currentTask.id, taskData);
+
       fetchTasks(); // Refresh the list
       setOpenForm(false);
       setCurrentTask(null);
@@ -729,22 +794,8 @@ function TasksPage() {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                backgroundColor: task.is_sub_task
-                  ? 'rgba(0, 0, 0, 0.04)'
-                  : 'inherit',
-                paddingLeft: task.is_sub_task ? 4 : 2,
               }}
             >
-              {task.is_sub_task && (
-                <SubdirectoryArrowRightIcon
-                  fontSize="small"
-                  sx={{
-                    mr: 1,
-                    verticalAlign: 'middle',
-                    color: 'text.secondary',
-                  }}
-                />
-              )}
               {task.name}
               {task.description && (
                 <Tooltip title={task.description} arrow>
@@ -758,19 +809,55 @@ function TasksPage() {
             </TableCell>
           );
 
-        case 'subTask':
+        // Add the subTaskName case
+        case 'subTaskName':
           return (
-            <TableCell
-              key={column.id}
-              align="center"
-              sx={{ width: width, maxWidth: width }}
-            >
-              {task.is_sub_task ? (
-                <CheckCircleOutlineIcon color="primary" fontSize="small" />
-              ) : null}
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              {editingSubTaskName === task.id ? (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <TextField
+                    value={subTaskNameValue}
+                    onChange={(e) => setSubTaskNameValue(e.target.value)}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter sub-task..."
+                    autoFocus
+                    onBlur={saveSubTaskName}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        saveSubTaskName();
+                      }
+                    }}
+                  />
+                </Box>
+              ) : (
+                <Box
+                  onClick={() =>
+                    handleSubTaskNameEdit(task.id, task.sub_task_name)
+                  }
+                  sx={{
+                    cursor: 'pointer',
+                    minHeight: '24px',
+                    p: 1,
+                    maxWidth: width - 16,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      borderRadius: 1,
+                    },
+                  }}
+                >
+                  {task.sub_task_name || (
+                    <Typography variant="caption" color="text.secondary">
+                      Click to add...
+                    </Typography>
+                  )}
+                </Box>
+              )}
             </TableCell>
           );
-
         case 'project':
           return (
             <TableCell
@@ -1253,26 +1340,36 @@ function TasksPage() {
                 </FormControl>
               </Grid>
 
-              {/* Sub-task filter (checkbox) */}
+              {/* Sub Task Name filter */}
               <Grid item xs={12} sm={6} md={4} lg={2}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={filters.subTask}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          subTask: e.target.checked,
-                        }))
-                      }
-                      name="subTaskFilter"
-                      color="primary"
-                    />
-                  }
-                  label="Sub-tasks only"
+                <TextField
+                  label="Sub Task"
+                  variant="outlined"
+                  fullWidth
+                  value={filters.subTaskName}
+                  onChange={handleFilterChange('subTaskName')}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                    endAdornment: filters.subTaskName ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() =>
+                            setFilters((prev) => ({ ...prev, subTaskName: '' }))
+                          }
+                          edge="end"
+                          size="small"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
                 />
               </Grid>
-
               <Grid item xs={12} display="flex" justifyContent="flex-end">
                 <Button
                   variant="outlined"
