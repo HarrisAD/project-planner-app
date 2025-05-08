@@ -23,6 +23,7 @@ import {
   Checkbox,
   TableCell,
   Popover,
+  TableSortLabel,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -70,7 +71,11 @@ function TasksPage() {
   const { showNotification } = useNotification();
   const [editingSubTaskName, setEditingSubTaskName] = useState(null);
   const [subTaskNameValue, setSubTaskNameValue] = useState('');
-
+  // Sorting states
+  const [sortConfig, setSortConfig] = useState({
+    key: 'dueDate',
+    direction: 'asc',
+  });
   // State for inline editable fields
   const [editingPathToGreen, setEditingPathToGreen] = useState(null);
   const [pathToGreenValue, setPathToGreenValue] = useState('');
@@ -110,45 +115,88 @@ function TasksPage() {
       id: 'rag',
       label: 'RAG',
       width: 120,
-      renderHeader: () => (
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          RAG
-          <Tooltip
-            title="Automatically calculated based on days assigned, days taken, assignee working days, and holidays"
-            arrow
-          >
-            <IconButton size="small">
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
+      sortable: true,
+      hasTooltip: true, // Add this flag
+      tooltipText:
+        'Automatically calculated based on days assigned, days taken, assignee working days, and holidays', // Add tooltip text
     },
-    { id: 'persona', label: 'Persona', width: 150 },
-    { id: 'dueDate', label: 'Due Date', width: 120 },
+    {
+      id: 'dueDate',
+      label: 'Due Date',
+      width: 120,
+      sortable: true,
+    },
     {
       id: 'timeUsage',
       label: 'Time Usage',
       width: 200,
-      renderHeader: () => (
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          Time Usage
-          <Tooltip
-            title="Shows days taken vs days assigned and completion percentage"
-            arrow
-          >
-            <IconButton size="small">
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
+      sortable: false,
+      hasTooltip: true, // Add this flag
+      tooltipText:
+        'Shows days taken vs days assigned and completion percentage', // Add tooltip text
     },
     { id: 'pathToGreen', label: 'Path to Green', width: 200 },
     { id: 'notes', label: 'Notes', width: 80 },
-    { id: 'lastUpdated', label: 'Last Updated', width: 120 },
+    {
+      id: 'lastUpdated',
+      label: 'Last Updated',
+      width: 120,
+      sortable: true,
+    },
+    { id: 'persona', label: 'Persona', width: 150, sortable: true },
     { id: 'actions', label: 'Actions', width: 150 },
   ];
+
+  const sortTasks = (tasks) => {
+    if (!sortConfig.key) return tasks;
+
+    return [...tasks].sort((a, b) => {
+      let aValue, bValue;
+
+      switch (sortConfig.key) {
+        case 'dueDate':
+          aValue = a.due_date ? new Date(a.due_date) : new Date(0);
+          bValue = b.due_date ? new Date(b.due_date) : new Date(0);
+          break;
+        case 'rag':
+          aValue = a.timeInfo?.calculatedRag || 0;
+          bValue = b.timeInfo?.calculatedRag || 0;
+          break;
+        case 'lastUpdated':
+          aValue = a.last_updated_days
+            ? new Date(a.last_updated_days)
+            : new Date(0);
+          bValue = b.last_updated_days
+            ? new Date(b.last_updated_days)
+            : new Date(0);
+          break;
+        case 'name':
+          aValue = a.name?.toLowerCase() || '';
+          bValue = b.name?.toLowerCase() || '';
+          break;
+        // Add other sortable columns...
+        default:
+          aValue = a[sortConfig.key];
+          bValue = b[sortConfig.key];
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  };
+  // Handle sorting when column header is clicked
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
   // Handle Sub Task Name inline editing
   const handleSubTaskNameEdit = (taskId, currentValue) => {
     console.log(
@@ -443,8 +491,73 @@ function TasksPage() {
 
   // Apply filters whenever tasks or filters change
   useEffect(() => {
-    applyFilters();
-  }, [tasks, filters]);
+    // First apply filters
+    let filtered = [...tasks];
+
+    // Filter by name
+    if (filters.name) {
+      const searchTerm = filters.name.toLowerCase();
+      filtered = filtered.filter((task) =>
+        task.name.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Filter by project
+    if (filters.project) {
+      filtered = filtered.filter(
+        (task) => task.project_name === filters.project
+      );
+    }
+
+    // Filter by assignee
+    if (filters.assignee) {
+      filtered = filtered.filter((task) => task.assignee === filters.assignee);
+    }
+
+    // Filter by status
+    if (filters.status) {
+      filtered = filtered.filter((task) => task.status === filters.status);
+    }
+
+    // Filter by RAG status
+    if (filters.rag) {
+      const ragValue = parseInt(filters.rag);
+      filtered = filtered.filter(
+        (task) => task.timeInfo && task.timeInfo.calculatedRag === ragValue
+      );
+    }
+
+    // Filter by due date
+    if (filters.dueDate) {
+      const filterDate = new Date(filters.dueDate);
+      filterDate.setHours(0, 0, 0, 0);
+
+      filtered = filtered.filter((task) => {
+        if (!task.due_date) return false;
+        const taskDueDate = new Date(task.due_date);
+        taskDueDate.setHours(0, 0, 0, 0);
+        return taskDueDate.getTime() === filterDate.getTime();
+      });
+    }
+
+    // Filter by persona
+    if (filters.persona) {
+      filtered = filtered.filter((task) => task.persona === filters.persona);
+    }
+
+    // Filter by sub-task status
+    if (filters.subTaskName) {
+      const searchTerm = filters.subTaskName.toLowerCase();
+      filtered = filtered.filter((task) =>
+        task.sub_task_name?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Then sort the filtered results
+    const sortedTasks = sortTasks(filtered);
+
+    setFilteredTasks(sortedTasks);
+  }, [tasks, filters, sortConfig]);
 
   useEffect(() => {
     fetchTasks();
@@ -1141,7 +1254,14 @@ function TasksPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+      <Box
+        sx={{
+          height: '100vh', // Full viewport height
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         <Typography variant="h4">Tasks</Typography>
         <Stack direction="row" spacing={2}>
           <Button
@@ -1410,15 +1530,27 @@ function TasksPage() {
         </Alert>
       ) : (
         // Replace the TableContainer with ResizableTable
-        <ResizableTable
-          columns={columns}
-          rows={displayTasks}
-          renderRow={renderRow}
-          storageKey="taskColumnWidths"
-          defaultColumnWidth={150}
-        />
+        <Box
+          sx={{
+            flexGrow: 1,
+            overflow: 'hidden',
+            width: '100%',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <ResizableTable
+            columns={columns}
+            rows={displayTasks}
+            renderRow={renderRow}
+            storageKey="taskColumnWidths"
+            defaultColumnWidth={150}
+            onSort={handleSort}
+            sx={{ position: 'absolute', inset: 0 }} // Added inline styles
+          />
+        </Box>
       )}
-
       {/* Tau Notes Popover */}
       <Popover
         open={Boolean(tauNotesAnchorEl)}

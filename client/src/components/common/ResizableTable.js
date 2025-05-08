@@ -8,13 +8,20 @@ import {
   TableRow,
   Paper,
   Box,
+  TableSortLabel,
+  Tooltip,
+  IconButton,
 } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
-const SimpleResizableTable = ({
+const ResizableTable = ({
   columns,
   rows,
   renderRow,
   storageKey = 'tableColumnWidths',
+  onSort = null,
+  defaultColumnWidth = 150,
+  sx = {},
 }) => {
   // State to track column widths
   const [columnWidths, setColumnWidths] = useState({});
@@ -29,14 +36,14 @@ const SimpleResizableTable = ({
         // Initialize with default widths if none saved
         const initialWidths = {};
         columns.forEach((col) => {
-          initialWidths[col.id] = col.width || 150;
+          initialWidths[col.id] = col.width || defaultColumnWidth;
         });
         setColumnWidths(initialWidths);
       }
     } catch (err) {
       console.error('Error loading column widths from localStorage:', err);
     }
-  }, [columns, storageKey]);
+  }, [columns, storageKey, defaultColumnWidth]);
 
   // Save column widths to localStorage when they change
   useEffect(() => {
@@ -49,9 +56,36 @@ const SimpleResizableTable = ({
     }
   }, [columnWidths, storageKey]);
 
+  // Calculate total width for table
+  const getTotalWidth = () => {
+    return columns.reduce((total, column) => {
+      return (
+        total + (columnWidths[column.id] || column.width || defaultColumnWidth)
+      );
+    }, 0);
+  };
+
   return (
-    <TableContainer component={Paper}>
-      <Table>
+    <TableContainer
+      component={Paper}
+      sx={{
+        width: '100%',
+        height: '100%',
+        overflow: 'auto',
+        position: 'absolute', // Added position absolute
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        ...sx,
+      }}
+    >
+      <Table
+        sx={{
+          minWidth: getTotalWidth(),
+          tableLayout: 'fixed',
+        }}
+      >
         <TableHead>
           <TableRow>
             {columns.map((column) => (
@@ -59,18 +93,47 @@ const SimpleResizableTable = ({
                 key={column.id}
                 sx={{
                   position: 'relative',
-                  width: columnWidths[column.id] || column.width || 150,
-                  minWidth: columnWidths[column.id] || column.width || 150,
-                  maxWidth: columnWidths[column.id] || column.width || 150,
+                  width:
+                    columnWidths[column.id] ||
+                    column.width ||
+                    defaultColumnWidth,
+                  minWidth:
+                    columnWidths[column.id] ||
+                    column.width ||
+                    defaultColumnWidth,
+                  maxWidth:
+                    columnWidths[column.id] ||
+                    column.width ||
+                    defaultColumnWidth,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   fontWeight: 'bold',
+                  backgroundColor: '#f5f5f5', // Light gray background for header
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
                 }}
               >
-                {column.renderHeader ? column.renderHeader() : column.label}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {column.sortable && onSort ? (
+                    <TableSortLabel onClick={() => onSort(column.id)}>
+                      {column.label}
+                    </TableSortLabel>
+                  ) : (
+                    column.label
+                  )}
 
-                {/* Simple resize handle */}
+                  {column.hasTooltip && (
+                    <Tooltip title={column.tooltipText || ''} arrow>
+                      <IconButton size="small">
+                        <InfoOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+
+                {/* Resize handle */}
                 <Box
                   sx={{
                     position: 'absolute',
@@ -95,7 +158,9 @@ const SimpleResizableTable = ({
                   onMouseDown={(e) => {
                     const startX = e.clientX;
                     const startWidth =
-                      columnWidths[column.id] || column.width || 150;
+                      columnWidths[column.id] ||
+                      column.width ||
+                      defaultColumnWidth;
 
                     const handleMouseMove = (moveEvent) => {
                       const deltaX = moveEvent.clientX - startX;
@@ -138,4 +203,4 @@ const SimpleResizableTable = ({
   );
 };
 
-export default SimpleResizableTable;
+export default ResizableTable;
