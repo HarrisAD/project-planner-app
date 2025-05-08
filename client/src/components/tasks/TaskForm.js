@@ -17,9 +17,6 @@ import {
   Box,
   Chip,
   FormHelperText,
-  Switch,
-  FormControlLabel,
-  Autocomplete,
 } from '@mui/material';
 import {
   projectService,
@@ -40,7 +37,6 @@ const PERSONA_OPTIONS = [
 function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   const [projects, setProjects] = useState([]);
   const [assignees, setAssignees] = useState([]);
-  const [parentTasks, setParentTasks] = useState([]);
   const [ragInfo, setRagInfo] = useState({
     ragStatus: 1,
     buffer: 0,
@@ -58,6 +54,7 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   } = useForm({
     defaultValues: {
       name: '',
+      subTaskName: '', // Changed from isSubTask boolean to subTaskName string
       projectId: '',
       assignee: '',
       status: 'Not Started',
@@ -70,20 +67,17 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
       tauNotes: '',
       pathToGreen: '',
       persona: '',
-      isSubTask: false,
-      parentTaskId: '',
     },
   });
 
-  // Watch the fields that affect RAG calculation and sub-task settings
+  // Watch the fields that affect RAG calculation
   const daysAssigned = watch('daysAssigned');
   const daysTaken = watch('daysTaken');
   const dueDate = watch('dueDate');
   const startDate = watch('startDate');
   const projectId = watch('projectId');
-  const isSubTask = watch('isSubTask');
 
-  // Fetch assignees, projects, and potential parent tasks when form opens
+  // Fetch assignees and projects when form opens
   useEffect(() => {
     if (open) {
       setLoading(true);
@@ -106,39 +100,12 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
         })
         .catch((err) => {
           console.error('Error fetching assignees:', err);
-        });
-
-      // Fetch tasks that could be parent tasks (non-subtasks)
-      taskService
-        .getAll()
-        .then((response) => {
-          // Filter out tasks that are already subtasks
-          const potentialParents = response.data.filter(
-            (task) => !task.is_sub_task
-          );
-          setParentTasks(potentialParents);
-        })
-        .catch((err) => {
-          console.error('Error fetching potential parent tasks:', err);
         })
         .finally(() => {
           setLoading(false);
         });
     }
   }, [open]);
-
-  // When project changes, filter parent tasks to only include tasks from the same project
-  useEffect(() => {
-    if (projectId && parentTasks.length > 0) {
-      // Only show parent tasks from the same project
-      const filteredParents = parentTasks.filter(
-        (task) => task.project_id.toString() === projectId.toString()
-      );
-
-      // If the currently selected parent is not in the filtered list, clear it
-      setValue('parentTaskId', '');
-    }
-  }, [projectId, parentTasks, setValue]);
 
   // Calculate RAG status whenever relevant fields change
   useEffect(() => {
@@ -176,6 +143,7 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
 
       reset({
         name: initialData.name || '',
+        subTaskName: initialData.sub_task_name || '', // New field
         projectId: initialData.project_id || '',
         assignee: initialData.assignee || '',
         status: initialData.status || 'Not Started',
@@ -188,8 +156,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
         tauNotes: initialData.tau_notes || '',
         pathToGreen: initialData.path_to_green || '',
         persona: initialData.persona || '',
-        isSubTask: initialData.is_sub_task || false,
-        parentTaskId: initialData.parent_task_id || '',
       });
     }
   }, [initialData, reset]);
@@ -214,13 +180,12 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
       projectId: parseInt(data.projectId),
       daysAssigned: parseInt(data.daysAssigned),
       daysTaken: parseInt(data.daysTaken || 0),
+      subTaskName: data.subTaskName, // New field
       rag: ragInfo.ragStatus, // Use calculated RAG status
-      isSubTask: data.isSubTask,
-      parentTaskId: data.isSubTask ? data.parentTaskId : null,
     };
 
     // Log the data being submitted
-    console.log('Submitting task data:', taskData);
+    console.log('Submitting task data with sub-task:', taskData);
 
     onSubmit(taskData);
     reset();
@@ -272,8 +237,8 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
         <DialogTitle>{isEdit ? 'Edit Task' : 'Create New Task'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* Basic Task Information */}
-            <Grid item xs={12} sm={8}>
+            {/* Task Name */}
+            <Grid item xs={12}>
               <Controller
                 name="name"
                 control={control}
@@ -290,21 +255,17 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
               />
             </Grid>
 
-            {/* Sub-task Switch */}
-            <Grid item xs={12} sm={4}>
+            {/* Sub Task Name - new field */}
+            <Grid item xs={12}>
               <Controller
-                name="isSubTask"
+                name="subTaskName"
                 control={control}
-                render={({ field: { onChange, value } }) => (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={value}
-                        onChange={onChange}
-                        color="primary"
-                      />
-                    }
-                    label="Is Sub-Task"
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Sub Task Name"
+                    fullWidth
+                    placeholder="Optional sub-task description"
                   />
                 )}
               />
@@ -343,59 +304,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
-            {/* Parent Task dropdown (only visible if isSubTask is true) */}
-            {isSubTask && (
-              <Grid item xs={12}>
-                <Controller
-                  name="parentTaskId"
-                  control={control}
-                  rules={{
-                    required: isSubTask
-                      ? 'Parent task is required for sub-tasks'
-                      : false,
-                  }}
-                  render={({ field }) => (
-                    <FormControl
-                      fullWidth
-                      error={!!errors.parentTaskId}
-                      sx={{ minWidth: '120px' }}
-                    >
-                      <InputLabel>Parent Task</InputLabel>
-                      <Select
-                        {...field}
-                        label="Parent Task"
-                        displayEmpty
-                        sx={{ minHeight: '56px' }}
-                        disabled={!projectId || loading}
-                      >
-                        {parentTasks
-                          .filter(
-                            (task) =>
-                              task.project_id.toString() ===
-                              projectId.toString()
-                          )
-                          .map((task) => (
-                            <MenuItem key={task.id} value={task.id}>
-                              {task.name}
-                            </MenuItem>
-                          ))}
-                      </Select>
-                      {errors.parentTaskId && (
-                        <FormHelperText>
-                          {errors.parentTaskId.message}
-                        </FormHelperText>
-                      )}
-                      {!projectId && (
-                        <FormHelperText>
-                          Select a project first to see available parent tasks
-                        </FormHelperText>
-                      )}
-                    </FormControl>
-                  )}
-                />
-              </Grid>
-            )}
 
             <Grid item xs={12} sm={6}>
               <Controller
@@ -633,11 +541,7 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
             type="submit"
             variant="contained"
             color="primary"
-            disabled={
-              loading ||
-              assignees.length === 0 ||
-              (isSubTask && (!projectId || parentTasks.length === 0))
-            }
+            disabled={loading || assignees.length === 0}
           >
             {isEdit ? 'Update Task' : 'Create Task'}
           </Button>

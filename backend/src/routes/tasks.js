@@ -1,4 +1,4 @@
-// backend/src/routes/tasks.js - Updates to support new fields
+// backend/src/routes/tasks.js
 
 const express = require('express');
 const router = express.Router();
@@ -67,6 +67,7 @@ router.post('/', async (req, res) => {
 
     const {
       name,
+      subTaskName, // New field
       projectId,
       assignee,
       status,
@@ -78,8 +79,6 @@ router.post('/', async (req, res) => {
       tauNotes,
       pathToGreen,
       persona,
-      isSubTask,
-      parentTaskId,
     } = req.body;
 
     // Debug log
@@ -87,6 +86,7 @@ router.post('/', async (req, res) => {
       'Task creation data:',
       JSON.stringify({
         name,
+        subTaskName,
         projectId,
         assignee,
         status,
@@ -98,8 +98,6 @@ router.post('/', async (req, res) => {
         tauNotes,
         pathToGreen,
         persona,
-        isSubTask,
-        parentTaskId,
       })
     );
 
@@ -107,6 +105,7 @@ router.post('/', async (req, res) => {
       `INSERT INTO tasks (
           project_id, 
           name, 
+          sub_task_name,
           assignee, 
           status, 
           rag, 
@@ -116,15 +115,14 @@ router.post('/', async (req, res) => {
           description,
           tau_notes,
           path_to_green,
-          persona,
-          is_sub_task,
-          parent_task_id
+          persona
         ) 
-        VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::DATE, NULLIF($7, '')::DATE, $8, $9, $10, $11, $12, $13, $14) 
+        VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, '')::DATE, NULLIF($8, '')::DATE, $9, $10, $11, $12, $13) 
         RETURNING *`,
       [
         projectId,
         name,
+        subTaskName || null,
         assignee,
         status || 'Not Started',
         rag || 1,
@@ -135,8 +133,6 @@ router.post('/', async (req, res) => {
         tauNotes || null,
         pathToGreen || null,
         persona || null,
-        isSubTask || false,
-        parentTaskId ? parseInt(parentTaskId) : null,
       ]
     );
 
@@ -165,6 +161,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const {
       name,
+      subTaskName, // New field
       projectId,
       assignee,
       status,
@@ -177,8 +174,6 @@ router.put('/:id', async (req, res) => {
       tauNotes,
       pathToGreen,
       persona,
-      isSubTask,
-      parentTaskId,
     } = req.body;
 
     // Debug log
@@ -187,6 +182,7 @@ router.put('/:id', async (req, res) => {
       JSON.stringify({
         id,
         name,
+        subTaskName,
         projectId,
         assignee,
         status,
@@ -199,8 +195,6 @@ router.put('/:id', async (req, res) => {
         tauNotes,
         pathToGreen,
         persona,
-        isSubTask,
-        parentTaskId,
       })
     );
 
@@ -220,30 +214,30 @@ router.put('/:id', async (req, res) => {
     const result = await client.query(
       `UPDATE tasks 
          SET project_id = $1, 
-             name = $2, 
-             assignee = $3, 
-             status = $4, 
-             rag = $5, 
-             start_date = NULLIF($6, '')::DATE,
-             due_date = NULLIF($7, '')::DATE, 
-             days_assigned = $8,
-             days_taken = $9,
-             description = $10,
-             tau_notes = $11,
-             path_to_green = $12,
-             persona = $13,
-             is_sub_task = $14,
-             parent_task_id = $15,
+             name = $2,
+             sub_task_name = $3,
+             assignee = $4, 
+             status = $5, 
+             rag = $6, 
+             start_date = NULLIF($7, '')::DATE,
+             due_date = NULLIF($8, '')::DATE, 
+             days_assigned = $9,
+             days_taken = $10,
+             description = $11,
+             tau_notes = $12,
+             path_to_green = $13,
+             persona = $14,
              updated_at = CURRENT_TIMESTAMP,
              last_updated_days = CASE 
-                WHEN days_taken != $9 THEN CURRENT_TIMESTAMP 
+                WHEN days_taken != $10 THEN CURRENT_TIMESTAMP 
                 ELSE last_updated_days 
              END
-         WHERE id = $16
+         WHERE id = $15
          RETURNING *`,
       [
         projectId,
         name,
+        subTaskName || null,
         assignee,
         status,
         rag,
@@ -255,8 +249,6 @@ router.put('/:id', async (req, res) => {
         tauNotes || null,
         pathToGreen || null,
         persona || null,
-        isSubTask || false,
-        parentTaskId ? parseInt(parentTaskId) : null,
         id,
       ]
     );
@@ -329,29 +321,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete task' });
   } finally {
     client.release();
-  }
-});
-
-// Get all sub-tasks for a parent task
-router.get('/subtasks/:parentId', async (req, res) => {
-  try {
-    const { parentId } = req.params;
-
-    const result = await db.query(
-      `
-      SELECT t.*, p.company_name, p.workstream as project_name
-      FROM tasks t
-      LEFT JOIN projects p ON t.project_id = p.id
-      WHERE t.parent_task_id = $1
-      ORDER BY t.created_at DESC
-    `,
-      [parentId]
-    );
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching sub-tasks:', err);
-    res.status(500).json({ error: 'Failed to fetch sub-tasks' });
   }
 });
 

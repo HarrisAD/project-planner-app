@@ -9,7 +9,8 @@ const migrations = [
   '003_create_assignees_tables.sql',
   '004_create_public_holidays.sql',
   '005_resource_allocation_enhancements.sql',
-  '006_enhance_tasks_fields.sql', // New migration
+  '006_enhance_tasks_fields.sql',
+  '007_update_tasks_subtask_structure.sql', // New migration
 ];
 
 async function runMigrations() {
