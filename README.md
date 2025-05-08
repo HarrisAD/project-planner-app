@@ -5,18 +5,18 @@ A comprehensive web-based project planning application that replaces Excel-based
 ## Current Status
 
 **Last Updated**: May 2025  
-**Version**: 0.8.0
+**Version**: 0.9.5
 
 ## Tech Stack
 
 - **Frontend**: React with JavaScript
-- **UI Framework**: Material-UI
+- **UI Framework**: Material-UI v7
 - **Backend**: Node.js with Express
 - **Database**: PostgreSQL
 - **API Client**: Axios
 - **Form Handling**: React Hook Form
 - **Authentication**: JWT (planned)
-- **Testing**: Jest, React Testing Library (planned)
+- **Testing**: Jest, React Testing Library
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ project-planner-app/
 │   ├── src/
 │   │   ├── components/    # React components
 │   │   │   ├── assignees/ # Assignee management components
-│   │   │   ├── common/    # Common UI components
+│   │   │   ├── common/    # Common UI components including ResizableTable
 │   │   │   ├── holidays/  # Holiday management components
 │   │   │   ├── layout/    # Layout components
 │   │   │   ├── projects/  # Project-related components
@@ -109,7 +109,17 @@ project-planner-app/
 - [x] Intelligent allocation algorithms
 - [x] Over/under allocation detection
 
-### Phase 5: Data Management & Filtering ✅ (In Progress)
+### Phase 5: UI Enhancements ✅ (100% Complete)
+
+- [x] Resizable table columns with width persistence
+- [x] Enhanced project view with resource allocation metrics
+- [x] Persona-based resource tracking
+- [x] Inline editing for task metadata
+- [x] Progress visualization with percentage bars
+- [x] Compact resource allocation views
+- [x] Full-width table layouts for better data visibility
+
+### Phase 6: Data Management & Filtering ⏳ (70% Complete)
 
 - [x] Advanced task filtering by multiple criteria
 - [x] Resource filtering and grouping
@@ -118,7 +128,7 @@ project-planner-app/
 - [ ] Email notifications
 - [ ] Reporting and analytics
 
-### Phase 6: Authentication & Access Control (Planned)
+### Phase 7: Authentication & Access Control (Planned)
 
 - [ ] User model and authentication
 - [ ] Role-based access control
@@ -134,15 +144,19 @@ project-planner-app/
 - Track project progress automatically based on task completion
 - RAG (Red, Amber, Green) status system for risk assessment
 - Project overview dashboard
+- Resource allocation tracking by persona type
+- Progress calculation based on completed work vs assigned work
 
 ### 2. Task Management
 
-- Create, edit, and delete tasks
+- Create, edit, and delete tasks with sub-task capabilities
 - Assign tasks to team members from a managed assignee list
+- Categorize tasks by persona type (Exec Sponsor, Developer, etc.)
 - Time tracking with days assigned vs. days taken
 - Automatic status transitions based on progress
 - Quick time tracking updates with +/- buttons
 - Comprehensive task filtering by multiple criteria
+- Resizable table columns for optimized viewing
 
 ### 3. Assignee Management
 
@@ -175,6 +189,7 @@ project-planner-app/
 - Calendar view for visualizing assignments
 - Resource capacity planning
 - Pro-rated allocation calculation for accurate forecasting
+- Persona-based allocation tracking
 
 ## Task Status Automation
 
@@ -216,156 +231,42 @@ The application implements a comprehensive time tracking system across multiple 
 
 ### Project Level
 
+- **Progress Calculation**:
+
+  - Project progress is now calculated as total days used / total days assigned across all tasks
+  - This provides a more accurate reflection of overall project completion
+
+- **Resource Allocation Tracking**:
+
+  - Projects track resource usage by persona type (Exec Sponsor, Developer, etc.)
+  - Provides a ratio of days used to days assigned for each resource type
+  - Shows progress bars for visual representation of usage
+
 - **RAG Status Cascading**:
   - **Red**: Any task within the project has a Red status
   - **Green**: All tasks within the project have Green status
   - **Amber**: Mix of Green and Amber tasks (no Red tasks)
   - Project RAG automatically updates when task RAG status changes
 
-### Quick Time Tracking
+## Recent Enhancements
 
-- One-click time updates for logging daily progress
-- Automatic status transitions based on time tracking data
-- Visual progress indicators showing time usage
+### Improved Table UI
 
-## Resource Allocation System
+- **Resizable Columns**: Table columns can now be resized and widths are persisted between sessions
+- **Full-width Layout**: Tables now utilize the full width of the screen for better data visibility
+- **Visual Progress Indicators**: Progress bars with percentage indicators for clearer status tracking
 
-The application provides intelligent resource allocation management:
+### Resource Allocation Tracking
 
-### Resource Summary
+- **Persona-based Resource Allocation**: Tasks are now categorized by persona type, allowing for better resource planning
+- **Allocation Visualization**: Progress bars show resource usage by persona across projects
+- **Totals Calculation**: Each project shows total days assigned/used across all personas
 
-- Overview of team member allocations for selected time periods
-- Calculation of total capacity based on working days per week
-- Detection of overallocated team members
-- Visual allocation indicators with RAG status
+### Inline Editing
 
-### Allocation Details
-
-- Breakdown of allocations by project and task
-- Time-based allocation analysis
-- Remaining days calculation
-- Intelligent RAG status for allocation health
-
-### Calendar View
-
-- Visual timeline of team assignments
-- Resource allocation by date
-- Filtering by team member and project
-- Date range selection for focused views
-
-### Workload Analysis
-
-- Team utilization metrics
-- Capacity vs allocation comparisons
-- Recommendations for workload balancing
-- Team-wide allocation metrics
-
-## Database Schema
-
-```sql
--- Projects table
-CREATE TABLE projects (
-    id SERIAL PRIMARY KEY,
-    company_name VARCHAR(255) NOT NULL,
-    workstream VARCHAR(255),
-    description TEXT,
-    status VARCHAR(50) DEFAULT 'Planning',
-    rag INTEGER DEFAULT 1 CHECK (rag IN (1, 2, 3)),
-    progress DECIMAL(5,2) DEFAULT 0,
-    start_date DATE,
-    end_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tasks table
-CREATE TABLE tasks (
-    id SERIAL PRIMARY KEY,
-    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    assignee VARCHAR(255),
-    status VARCHAR(50) DEFAULT 'Not Started',
-    rag INTEGER DEFAULT 1 CHECK (rag IN (1, 2, 3)),
-    due_date DATE,
-    start_date DATE,
-    days_assigned INTEGER,
-    days_taken INTEGER DEFAULT 0,
-    description TEXT,
-    last_updated_days TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Assignees table
-CREATE TABLE assignees (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    email VARCHAR(255),
-    working_days_per_week DECIMAL(3,1) DEFAULT 5.0,
-    start_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Assignee holidays table
-CREATE TABLE assignee_holidays (
-    id SERIAL PRIMARY KEY,
-    assignee_id INTEGER REFERENCES assignees(id) ON DELETE CASCADE,
-    holiday_date DATE NOT NULL,
-    date_end DATE,
-    description VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Public holidays table
-CREATE TABLE public_holidays (
-    id SERIAL PRIMARY KEY,
-    holiday_date DATE NOT NULL,
-    description VARCHAR(255) NOT NULL,
-    country_code VARCHAR(2) DEFAULT 'GB',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-## API Endpoints
-
-### Projects
-
-- `GET /api/projects` - Get all projects
-- `POST /api/projects` - Create project
-- `PUT /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
-
-### Tasks
-
-- `GET /api/tasks` - Get all tasks
-- `POST /api/tasks` - Create task
-- `PUT /api/tasks/:id` - Update task
-- `DELETE /api/tasks/:id` - Delete task
-
-### Assignees
-
-- `GET /api/assignees` - Get all assignees
-- `GET /api/assignees/:id` - Get assignee by ID
-- `POST /api/assignees` - Create assignee
-- `PUT /api/assignees/:id` - Update assignee
-- `DELETE /api/assignees/:id` - Delete assignee
-
-### Holidays
-
-- `GET /api/assignees/:id/holidays` - Get holidays for an assignee
-- `POST /api/assignees/:id/holidays` - Add holiday for assignee
-- `POST /api/assignees/:id/holiday-range` - Add holiday range for assignee
-- `DELETE /api/assignees/holidays/:id` - Delete holiday
-- `GET /api/holidays/public` - Get all public holidays
-- `POST /api/holidays/public` - Create public holiday
-- `DELETE /api/holidays/public/:id` - Delete public holiday
-
-### Resource Allocation
-
-- `GET /api/resource-allocation` - Get detailed resource allocation
-- `GET /api/resource-allocation/calendar` - Get calendar view data
-- `GET /api/resource-allocation/workload-summary` - Get workload summary
+- **Quick Edits**: Many fields can now be edited inline without opening the full form
+- **Path to Green**: Direct editing of remediation steps for at-risk tasks
+- **Notes Management**: Better TAU notes management with popup editor
 
 ## Running the Application
 
