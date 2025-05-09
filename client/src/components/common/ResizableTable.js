@@ -11,6 +11,7 @@ import {
   TableSortLabel,
   Tooltip,
   IconButton,
+  Checkbox,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
@@ -22,6 +23,9 @@ const ResizableTable = ({
   onSort = null,
   defaultColumnWidth = 150,
   sx = {},
+  selectedItems = [], // New prop
+  onSelectAll = null, // New prop
+  enableSelection = false, // New prop
 }) => {
   // State to track column widths
   const [columnWidths, setColumnWidths] = useState({});
@@ -72,7 +76,7 @@ const ResizableTable = ({
         width: '100%',
         height: '100%',
         overflow: 'auto',
-        position: 'absolute', // Added position absolute
+        position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
@@ -115,23 +119,35 @@ const ResizableTable = ({
                   zIndex: 1,
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  {column.sortable && onSort ? (
-                    <TableSortLabel onClick={() => onSort(column.id)}>
-                      {column.label}
-                    </TableSortLabel>
-                  ) : (
-                    column.label
-                  )}
-
-                  {column.hasTooltip && (
-                    <Tooltip title={column.tooltipText || ''} arrow>
-                      <IconButton size="small">
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
+                {column.id === 'select' && enableSelection ? (
+                  <Checkbox
+                    checked={
+                      rows.length > 0 && selectedItems.length === rows.length
+                    }
+                    indeterminate={
+                      selectedItems.length > 0 &&
+                      selectedItems.length < rows.length
+                    }
+                    onChange={onSelectAll}
+                    size="small"
+                    color="primary"
+                  />
+                ) : column.sortable && onSort ? (
+                  <TableSortLabel onClick={() => onSort(column.id)}>
+                    {column.label}
+                  </TableSortLabel>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {column.label}
+                    {column.hasTooltip && (
+                      <Tooltip title={column.tooltipText || ''} arrow>
+                        <IconButton size="small">
+                          <InfoOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+                )}
 
                 {/* Resize handle */}
                 <Box

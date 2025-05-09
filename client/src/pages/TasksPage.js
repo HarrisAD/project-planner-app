@@ -65,6 +65,7 @@ function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [openForm, setOpenForm] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedTasks, setSelectedTasks] = useState([]);
   const [currentTask, setCurrentTask] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -108,6 +109,7 @@ function TasksPage() {
 
   // Define table columns
   const columns = [
+    { id: 'select', label: 'Select', width: 70 },
     { id: 'name', label: 'Task', width: 200 },
     { id: 'subTaskName', label: 'Sub Task', width: 150 },
     { id: 'project', label: 'Project', width: 150 },
@@ -481,6 +483,7 @@ function TasksPage() {
       });
 
       setTasks(enhancedTasks);
+      setSelectedTasks([]); // Clear task selections
       setError(null);
     } catch (err) {
       console.error('Error fetching tasks:', err);
@@ -733,24 +736,37 @@ function TasksPage() {
   const handleCloseDeleteDialog = () => {
     setDeleteDialogOpen(false);
     setTaskToDelete(null);
+    // We're deliberately NOT clearing selectedTasks here
+    // This allows users to try again with the same selection if they cancel
   };
 
   const handleDeleteTask = async () => {
     try {
-      if (!taskToDelete) return;
-
-      await taskService.delete(taskToDelete.id);
-      fetchTasks(); // Refresh the list
-      setDeleteDialogOpen(false);
-      setTaskToDelete(null);
-      showNotification('Task deleted successfully');
+      if (taskToDelete) {
+        // Single task deletion (existing behavior)
+        await taskService.delete(taskToDelete.id);
+        fetchTasks(); // Refresh the list
+        setDeleteDialogOpen(false);
+        setTaskToDelete(null);
+        showNotification('Task deleted successfully');
+      } else if (selectedTasks.length > 0) {
+        // Mass deletion of selected tasks
+        // Ideally, we'd have a batch delete endpoint in the API
+        // For now, we'll delete tasks one by one
+        for (const taskId of selectedTasks) {
+          await taskService.delete(taskId);
+        }
+        fetchTasks(); // Refresh the list
+        setDeleteDialogOpen(false);
+        setSelectedTasks([]); // Clear selected tasks after deletion
+        showNotification(`${selectedTasks.length} tasks deleted successfully`);
+      }
     } catch (err) {
-      console.error('Error deleting task:', err);
-      setError(err.response?.data?.error || 'Failed to delete task');
-      showNotification('Failed to delete task', 'error');
+      console.error('Error deleting task(s):', err);
+      setError(err.response?.data?.error || 'Failed to delete task(s)');
+      showNotification('Failed to delete task(s)', 'error');
     }
   };
-
   const handleQuickUpdateDaysTaken = async (task, increment) => {
     try {
       // Get the current task from state first
@@ -846,6 +862,32 @@ function TasksPage() {
     }
   };
 
+  // Handler for the "Select All" checkbox
+  const handleSelectAllTasks = (event) => {
+    if (event.target.checked) {
+      // Select all tasks (or all filtered tasks if filters are applied)
+      const tasksToSelect = filteredTasks.length > 0 ? filteredTasks : tasks;
+      setSelectedTasks(tasksToSelect.map((task) => task.id));
+    } else {
+      // Deselect all tasks
+      setSelectedTasks([]);
+    }
+  };
+
+  // Handler for individual task selection
+  const handleSelectTask = (taskId, isSelected) => {
+    if (isSelected) {
+      setSelectedTasks((prev) => [...prev, taskId]);
+    } else {
+      setSelectedTasks((prev) => prev.filter((id) => id !== taskId));
+    }
+  };
+
+  const handleMassDelete = () => {
+    setTaskToDelete(null); // Set to null to indicate mass delete mode
+    setDeleteDialogOpen(true);
+  };
+
   const getRagColor = (rag) => {
     switch (rag) {
       case 1:
@@ -899,6 +941,18 @@ function TasksPage() {
 
       // Render appropriate cell based on column id
       switch (column.id) {
+        case 'select':
+          return (
+            <TableCell key={column.id} sx={{ width: width, maxWidth: width }}>
+              <Checkbox
+                checked={selectedTasks.includes(task.id)}
+                onChange={(e) => handleSelectTask(task.id, e.target.checked)}
+                size="small"
+                color="primary"
+              />
+            </TableCell>
+          );
+
         case 'name':
           return (
             <TableCell
@@ -1292,6 +1346,16 @@ function TasksPage() {
           >
             Import Tasks
           </Button>
+          {selectedTasks.length > 0 && (
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleMassDelete}
+            >
+              Delete Selected ({selectedTasks.length})
+            </Button>
+          )}
         </Stack>{' '}
       </Box>
       {/* Filter Panel */}
@@ -1646,7 +1710,10 @@ function TasksPage() {
             storageKey="taskColumnWidths"
             defaultColumnWidth={150}
             onSort={handleSort}
-            sx={{ width: '100%' }} // Make the table fill the container
+            sx={{ width: '100%' }}
+            selectedItems={selectedTasks}
+            onSelectAll={handleSelectAllTasks}
+            enableSelection={true}
           />
         </Box>
       )}
@@ -1700,8 +1767,12 @@ function TasksPage() {
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteTask}
-        title="Delete Task"
-        content={`Are you sure you want to delete the task "${taskToDelete?.name}"? This action cannot be undone.`}
+        title={taskToDelete ? 'Delete Task' : 'Delete Multiple Tasks'}
+        content={
+          taskToDelete
+            ? `Are you sure you want to delete the task "${taskToDelete?.name}"? This action cannot be undone.`
+            : `Are you sure you want to delete ${selectedTasks.length} selected tasks? This action cannot be undone.`
+        }
       />
     </Box>
   );
