@@ -5,7 +5,7 @@ A comprehensive web-based project planning application that replaces Excel-based
 ## Current Status
 
 **Last Updated**: May 2025  
-**Version**: 1.1.0
+**Version**: 1.2.0
 
 ## Tech Stack
 
@@ -87,6 +87,9 @@ project-planner-app/
 ### Task Management
 
 - Create, edit, and delete tasks with sub-task capabilities
+- **Multiple Task Selection**: Select multiple tasks with checkboxes for bulk operations
+- **Mass Deletion**: Delete multiple selected tasks at once
+- **Select All Functionality**: Quickly select all tasks or all filtered tasks
 - Assign tasks to team members from a managed assignee list
 - Categorize tasks by persona type
 - Time tracking with days assigned vs. days taken
@@ -153,95 +156,15 @@ Task status is automatically determined based on the following rules:
 
 This automation reduces manual status updates and ensures consistency between time tracking and task status.
 
-## Time Tracking System
-
-The application implements a comprehensive time tracking system across multiple levels:
-
-### Task Level
-
-- **Progress Calculation**:
-
-  - Task progress is calculated as `(days taken / days assigned) × 100%`
-  - Visual indicators show time usage with appropriate color coding
-  - Last update timestamp tracks when time data was most recently modified
-
-- **RAG Status Logic**:
-  - **Red**: Not enough time left to complete the task (remaining business days < estimated time needed)
-  - **Amber**: Tight deadline buffer (3 or fewer business days buffer)
-  - **Green**: Comfortable buffer (more than 3 business days buffer)
-  - The calculation considers:
-    - Business days remaining until due date (excluding weekends)
-    - Assignee's working days per week (e.g., 3 days vs 5 days)
-    - Individual holidays and holiday ranges
-    - Public holidays
-    - Estimated days still needed to complete (days assigned - days taken)
-
-### Project Level
-
-- **Progress Calculation**:
-
-  - Project progress is calculated as total days used / total days assigned across all tasks
-  - This provides a more accurate reflection of overall project completion
-
-- **Resource Allocation Tracking**:
-
-  - Projects track resource usage by persona type (Exec Sponsor, Developer, etc.)
-  - Provides a ratio of days used to days assigned for each resource type
-  - Shows progress bars for visual representation of usage
-
-- **RAG Status Cascading**:
-  - **Red**: Any task within the project has a Red status
-  - **Green**: All tasks within the project have Green status
-  - **Amber**: Mix of Green and Amber tasks (no Red tasks)
-  - Project RAG automatically updates when task RAG status changes
-
-## Excel Import Functionality
-
-The application provides a robust system for importing task data from Excel files:
-
-### Import Workflow
-
-1. **File Selection & Upload**:
-
-   - Drag-and-drop interface for file selection
-   - Support for Excel (.xlsx, .xls) and CSV formats
-   - Template download option for proper formatting
-
-2. **Column Mapping**:
-
-   - Automatic mapping of columns by name matching
-   - Manual mapping interface for custom Excel formats
-   - Required field validation and highlighting
-
-3. **Data Preview**:
-
-   - Formatted preview of mapped data
-   - Pagination for large datasets
-   - Visual indicators for status and RAG values
-
-4. **Validation & Processing**:
-
-   - Project and assignee validation against database
-   - Required field validation
-   - Date format conversion
-   - Detailed error reporting per row
-
-5. **Import Confirmation**:
-   - Success confirmation with count of imported tasks
-   - Option to return to task list
-   - Automatic project progress recalculation
-
-### Import Validation Rules
-
-- Task name is required
-- Project name must match an existing project
-- Assignee must match an existing assignee
-- Days assigned is required
-- Status must be one of: Not Started, In Progress, Completed, On Hold
-- RAG must be 1 (Green), 2 (Amber), or 3 (Red)
-- Persona must be one of: exec_sponsor, exec_lead, developer, consultant, programme_manager
-
 ## Recent Enhancements
+
+### Task Selection and Bulk Operations (v1.2.0)
+
+- **Multiple Task Selection**: Added checkboxes to select multiple tasks
+- **Select All**: Added a header checkbox to select all tasks or all filtered tasks
+- **Mass Delete**: Added ability to delete multiple selected tasks at once
+- **Confirmation Dialog**: Enhanced the confirmation dialog to support mass operations
+- **Selection Persistence**: Maintained selections when canceling operations
 
 ### Excel Integration (v1.1.0)
 
@@ -261,18 +184,6 @@ The application provides a robust system for importing task data from Excel file
 - **Resizable Columns**: Table columns can now be resized and widths are persisted between sessions
 - **Full-width Layout**: Tables now utilize the full width of the screen for better data visibility
 - **Visual Progress Indicators**: Progress bars with percentage indicators for clearer status tracking
-
-### Resource Allocation Tracking (v1.0.3)
-
-- **Persona-based Resource Allocation**: Tasks are now categorized by persona type, allowing for better resource planning
-- **Allocation Visualization**: Progress bars show resource usage by persona across projects
-- **Totals Calculation**: Each project shows total days assigned/used across all personas
-
-### Inline Editing (v1.0.2)
-
-- **Quick Edits**: Many fields can now be edited inline without opening the full form
-- **Path to Green**: Direct editing of remediation steps for at-risk tasks
-- **Notes Management**: Better TAU notes management with popup editor
 
 ## Running the Application
 

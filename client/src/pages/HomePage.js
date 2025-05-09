@@ -187,6 +187,8 @@ function HomePage() {
         const monthData = monthResponse.data.workload.find(
           (a) => a.assignee === assignee.assignee
         ) || {
+          allocated: 0,
+          totalCapacity: 1,
           allocationPercentage: 0,
           allocationStatus: 'Unknown',
         };
@@ -194,24 +196,70 @@ function HomePage() {
         const quarterData = quarterResponse.data.workload.find(
           (a) => a.assignee === assignee.assignee
         ) || {
+          allocated: 0,
+          totalCapacity: 1,
           allocationPercentage: 0,
           allocationStatus: 'Unknown',
         };
 
-        // Calculate estimated values for 2-month and 3-month periods
-        // Estimating that allocation decreases with time (80% of month allocation for 2 months, 60% for 3 months)
-        const twoMonthAllocation = monthData.allocationPercentage * 0.8;
-        const threeMonthAllocation = quarterData.allocationPercentage * 0.6;
+        // Use the same calculation method as WorkloadAnalysis.js
+        // Get raw allocated days and totalCapacity values
+        const weekAllocated = assignee.allocated || 0;
+        const weekCapacity = assignee.totalCapacity || 1; // Avoid division by zero
+        const monthAllocated = monthData.allocated || 0;
+        const monthCapacity = monthData.totalCapacity || 1; // Avoid division by zero
+        const quarterAllocated = quarterData.allocated || 0;
+        const quarterCapacity = quarterData.totalCapacity || 1; // Avoid division by zero
+
+        // Apply the same prorated calculation as WorkloadAnalysis.js
+        // For week, it divides by 3
+        const weekProratedAllocation = weekAllocated;
+        // For month and quarter, it uses the value as-is
+        const monthProratedAllocation = monthAllocated;
+        const quarterProratedAllocation = quarterAllocated;
+
+        // Calculate 2-month allocation using interpolation between month and quarter raw values
+        const twoMonthProratedAllocation =
+          (2 * monthProratedAllocation + quarterProratedAllocation) / 3;
+        const twoMonthCapacity = (2 * monthCapacity + quarterCapacity) / 3;
+
+        // Calculate percentages from prorated values, exactly as WorkloadAnalysis.js does
+        const weekAllocation = Math.round(
+          (weekProratedAllocation / weekCapacity) * 100
+        );
+        const monthAllocation = Math.round(
+          (monthProratedAllocation / monthCapacity) * 100
+        );
+        const twoMonthAllocation = Math.round(
+          (twoMonthProratedAllocation / twoMonthCapacity) * 100
+        );
+        const threeMonthAllocation = Math.round(
+          (quarterProratedAllocation / quarterCapacity) * 100
+        );
 
         return {
           name: assignee.assignee,
           week: {
-            allocation: assignee.allocationPercentage,
-            status: assignee.allocationStatus,
+            allocation: weekAllocation,
+            status:
+              weekAllocation > 120
+                ? 'Overallocated'
+                : weekAllocation > 90
+                ? 'Full'
+                : weekAllocation > 50
+                ? 'Balanced'
+                : 'Underallocated',
           },
           month: {
-            allocation: monthData.allocationPercentage,
-            status: monthData.allocationStatus,
+            allocation: monthAllocation,
+            status:
+              monthAllocation > 120
+                ? 'Overallocated'
+                : monthAllocation > 90
+                ? 'Full'
+                : monthAllocation > 50
+                ? 'Balanced'
+                : 'Underallocated',
           },
           twoMonths: {
             allocation: twoMonthAllocation,
@@ -639,7 +687,7 @@ function HomePage() {
                   <TableCell>Next Week</TableCell>
                   <TableCell>Next Month</TableCell>
                   <TableCell>Next 2 Months</TableCell>
-                  <TableCell>Next 3 Months</TableCell>
+                  <TableCell>Next Quarter</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
