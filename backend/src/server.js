@@ -14,6 +14,7 @@ const taskRoutes = require('./routes/tasks');
 const assigneeRoutes = require('./routes/assignees');
 const holidayRoutes = require('./routes/holidays');
 const resourceAllocationRoutes = require('./routes/resource-allocation');
+const importRoutes = require('./routes/import');
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -35,6 +36,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/assignees', assigneeRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/resource-allocation', resourceAllocationRoutes);
+app.use('/api/import', importRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

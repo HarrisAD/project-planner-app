@@ -47,6 +47,8 @@ import {
   determineTaskStatus,
   timeAgo,
 } from '../utils/dateUtils';
+import { Link } from 'react-router-dom';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 // Define persona options
 const PERSONA_OPTIONS = [
@@ -1281,7 +1283,16 @@ function TasksPage() {
           >
             Add Task
           </Button>
-        </Stack>
+          <Button
+            variant="outlined"
+            color="secondary"
+            component={Link}
+            to="/import"
+            startIcon={<FileUploadIcon />}
+          >
+            Import Tasks
+          </Button>
+        </Stack>{' '}
       </Box>
       {/* Filter Panel */}
       <Collapse in={filtersOpen}>

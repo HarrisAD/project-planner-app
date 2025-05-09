@@ -5,7 +5,7 @@ A comprehensive web-based project planning application that replaces Excel-based
 ## Current Status
 
 **Last Updated**: May 2025  
-**Version**: 1.0.0
+**Version**: 1.1.0
 
 ## Tech Stack
 
@@ -17,6 +17,7 @@ A comprehensive web-based project planning application that replaces Excel-based
 - **Form Handling**: React Hook Form
 - **Authentication**: JWT (planned)
 - **Testing**: Jest, React Testing Library
+- **Excel Integration**: SheetJS, Multer
 
 ## Prerequisites
 
@@ -45,6 +46,7 @@ project-planner-app/
 │   │   │   ├── assignees/ # Assignee management components
 │   │   │   ├── common/    # Common UI components including ResizableTable
 │   │   │   ├── holidays/  # Holiday management components
+│   │   │   ├── import/    # Excel import components
 │   │   │   ├── layout/    # Layout components
 │   │   │   ├── projects/  # Project-related components
 │   │   │   ├── resources/ # Resource allocation components
@@ -93,6 +95,15 @@ project-planner-app/
 - Comprehensive task filtering by multiple criteria
 - Resizable table columns for optimized viewing
 - Path to green tracking for amber/red tasks
+
+### Excel Import/Export
+
+- **Task Import**: Batch import tasks from Excel or CSV files
+- **Template Downloads**: Generate properly formatted Excel templates
+- **Column Mapping**: Intelligently map columns from uploaded files
+- **Data Validation**: Validate imported data with detailed error reporting
+- **Data Preview**: Preview import data before committing to database
+- **Error Handling**: Detailed validation error handling and reporting
 
 ### Assignee Management
 
@@ -184,27 +195,80 @@ The application implements a comprehensive time tracking system across multiple 
   - **Amber**: Mix of Green and Amber tasks (no Red tasks)
   - Project RAG automatically updates when task RAG status changes
 
+## Excel Import Functionality
+
+The application provides a robust system for importing task data from Excel files:
+
+### Import Workflow
+
+1. **File Selection & Upload**:
+
+   - Drag-and-drop interface for file selection
+   - Support for Excel (.xlsx, .xls) and CSV formats
+   - Template download option for proper formatting
+
+2. **Column Mapping**:
+
+   - Automatic mapping of columns by name matching
+   - Manual mapping interface for custom Excel formats
+   - Required field validation and highlighting
+
+3. **Data Preview**:
+
+   - Formatted preview of mapped data
+   - Pagination for large datasets
+   - Visual indicators for status and RAG values
+
+4. **Validation & Processing**:
+
+   - Project and assignee validation against database
+   - Required field validation
+   - Date format conversion
+   - Detailed error reporting per row
+
+5. **Import Confirmation**:
+   - Success confirmation with count of imported tasks
+   - Option to return to task list
+   - Automatic project progress recalculation
+
+### Import Validation Rules
+
+- Task name is required
+- Project name must match an existing project
+- Assignee must match an existing assignee
+- Days assigned is required
+- Status must be one of: Not Started, In Progress, Completed, On Hold
+- RAG must be 1 (Green), 2 (Amber), or 3 (Red)
+- Persona must be one of: exec_sponsor, exec_lead, developer, consultant, programme_manager
+
 ## Recent Enhancements
 
-### Enhanced Dashboard
+### Excel Integration (v1.1.0)
+
+- **Task Import**: Added ability to batch import tasks from Excel files
+- **Column Mapping**: Intelligent column mapping with validation
+- **Template Download**: Added downloadable import templates
+- **Error Handling**: Comprehensive validation and error reporting
+
+### Enhanced Dashboard (v1.0.5)
 
 - **Amber/Red Tasks**: Quick view of all at-risk tasks across projects
 - **Upcoming Tasks**: Due date-based filtering with deadline view
 - **Resource Allocation Summary**: Team allocation visualization across time periods
 
-### Improved Table UI
+### Improved Table UI (v1.0.4)
 
 - **Resizable Columns**: Table columns can now be resized and widths are persisted between sessions
 - **Full-width Layout**: Tables now utilize the full width of the screen for better data visibility
 - **Visual Progress Indicators**: Progress bars with percentage indicators for clearer status tracking
 
-### Resource Allocation Tracking
+### Resource Allocation Tracking (v1.0.3)
 
 - **Persona-based Resource Allocation**: Tasks are now categorized by persona type, allowing for better resource planning
 - **Allocation Visualization**: Progress bars show resource usage by persona across projects
 - **Totals Calculation**: Each project shows total days assigned/used across all personas
 
-### Inline Editing
+### Inline Editing (v1.0.2)
 
 - **Quick Edits**: Many fields can now be edited inline without opening the full form
 - **Path to Green**: Direct editing of remediation steps for at-risk tasks
@@ -236,19 +300,20 @@ npm start
 
 ## Next Development Steps
 
-### Priority 1: Enhanced Reporting
+### Priority 1: Enhanced Excel Integration
+
+1. ✅ Task import from Excel files
+2. Add Excel export functionality for tasks
+3. Implement project import/export
+4. Add ability to update existing tasks via import
+5. Create more advanced templates with validation rules
+
+### Priority 2: Reporting
 
 1. Implement dashboard charts for project metrics
 2. Create timeline/Gantt view for projects
 3. Generate PDF reports for projects
 4. Add project and resource export functionality
-
-### Priority 2: Excel Integration
-
-1. Add Excel import functionality for batch task creation
-2. Add Excel export functionality for reports
-3. Create data validation rules for imports
-4. Implement data mapping for various Excel formats
 
 ### Priority 3: Task Dependencies
 

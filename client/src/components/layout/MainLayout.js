@@ -32,6 +32,9 @@ function MainLayout() {
           <Button color="inherit" component={Link} to="/resources">
             Resources
           </Button>
+          <Button color="inherit" component={Link} to="/import">
+            Import
+          </Button>
         </Toolbar>
       </AppBar>
 
@@ -43,5 +46,4 @@ function MainLayout() {
     </Box>
   );
 }
-
 export default MainLayout;
