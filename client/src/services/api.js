@@ -56,4 +56,31 @@ export const resourceAllocationService = {
     api.get('/resource-allocation/workload-summary', { params }),
 };
 
+// Add new import service
+export const importService = {
+  // Parse file (first step - returns data for preview)
+  parseTaskFile: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/import/tasks', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Process the import after mapping and validation
+  processTaskImport: (tasks, columnMapping) => {
+    console.log('API service sending tasks:', tasks.length);
+    return api.post('/import/tasks/process', {
+      tasks,
+      columnMapping,
+    });
+  },
+  // Download import template
+  downloadTemplate: () => {
+    window.location.href = `${API_BASE_URL}/import/template/tasks`;
+  },
+};
+
 export default api;

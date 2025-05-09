@@ -8,6 +8,7 @@ import ApiTestPage from './pages/ApiTestPage';
 import { NotificationProvider } from './context/NotificationContext';
 import AssigneesPage from './pages/AssigneesPage';
 import ResourcesPage from './pages/ResourcesPage';
+import ImportPage from './pages/ImportPage'; // Add this import
 
 function App() {
   return (
@@ -21,11 +22,11 @@ function App() {
             <Route path="assignees" element={<AssigneesPage />} />
             <Route path="test" element={<ApiTestPage />} />
             <Route path="resources" element={<ResourcesPage />} />
+            <Route path="import" element={<ImportPage />} />
           </Route>
         </Routes>
       </Router>
     </NotificationProvider>
   );
 }
-
 export default App;
