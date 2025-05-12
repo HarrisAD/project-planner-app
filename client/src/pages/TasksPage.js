@@ -412,19 +412,33 @@ function TasksPage() {
 
       // Process each task to calculate enhanced RAG status
       const tasksPromises = response.data.map(async (task) => {
-        const daysAssigned = task.days_assigned || 0;
-        const daysTaken = task.days_taken || 0;
+        // Ensure values are properly parsed as floats
+        const daysAssigned = parseFloat(task.days_assigned);
+        const daysTaken = parseFloat(task.days_taken);
+
+        // Use safer defaults for null or NaN values
+        const finalDaysAssigned = isNaN(daysAssigned) ? 0 : daysAssigned;
+        const finalDaysTaken = isNaN(daysTaken) ? 0 : daysTaken;
+
         const dueDate = task.due_date;
         const assignee = task.assignee;
 
+        console.log(
+          `Task ${task.id}: days_assigned=${task.days_assigned}, parsed=${daysAssigned}, final=${finalDaysAssigned}`
+        );
+
         let timeInfo = {
-          daysRemaining: Math.max(0, daysAssigned - daysTaken),
+          daysRemaining: Math.max(0, finalDaysAssigned - finalDaysTaken),
           percentComplete:
-            daysAssigned > 0 ? (daysTaken / daysAssigned) * 100 : 0,
+            finalDaysAssigned > 0
+              ? (finalDaysTaken / finalDaysAssigned) * 100
+              : 0,
           businessDaysUntilDue: 0,
           buffer: 0,
           calculatedRag: task.rag || 1, // Default to existing RAG
         };
+
+        // ... rest of function
 
         // Calculate enhanced RAG status if we have all necessary data
         if (dueDate && assignee) {
@@ -669,8 +683,15 @@ function TasksPage() {
 
   const handleCreateTask = async (taskData) => {
     try {
-      console.log('Creating task with data:', taskData);
-      await taskService.create(taskData);
+      // Ensure days values are processed as floats
+      const processedData = {
+        ...taskData,
+        daysAssigned: parseFloat(taskData.daysAssigned),
+        daysTaken: parseFloat(taskData.daysTaken || 0),
+      };
+
+      console.log('Creating task with data:', processedData);
+      await taskService.create(processedData);
       fetchTasks(); // Refresh the list
       setOpenForm(false);
       showNotification('Task created successfully');
@@ -680,17 +701,35 @@ function TasksPage() {
       showNotification('Failed to create task', 'error');
     }
   };
-
   const handleUpdateTask = async (taskData) => {
     try {
       if (!currentTask) return;
 
-      console.log('Updating task with data (including sub-task):', taskData);
+      // Ensure daysAssigned and daysTaken are properly formatted as floats
+      const processedData = {
+        ...taskData,
+        daysAssigned: parseFloat(taskData.daysAssigned),
+        daysTaken: parseFloat(taskData.daysTaken || 0),
+      };
+
+      console.log(
+        'Updating task with data (including sub-task):',
+        processedData
+      );
+      console.log(
+        'Days assigned (should be a float):',
+        processedData.daysAssigned
+      );
+      console.log('Days taken (should be a float):', processedData.daysTaken);
 
       // Make sure subTaskName is being included in your API call
-      await taskService.update(currentTask.id, taskData);
+      await taskService.update(currentTask.id, processedData);
 
-      fetchTasks(); // Refresh the list
+      // Add a small delay before fetching to ensure the backend has completed the update
+      setTimeout(() => {
+        fetchTasks(); // Refresh the list with a slight delay
+      }, 100);
+
       setOpenForm(false);
       setCurrentTask(null);
       setIsEditing(false);
@@ -701,7 +740,6 @@ function TasksPage() {
       showNotification('Failed to update task', 'error');
     }
   };
-
   const handleOpenCreateForm = () => {
     setCurrentTask(null);
     setIsEditing(false);
@@ -775,11 +813,28 @@ function TasksPage() {
         throw new Error('Task not found in current state');
       }
 
-      // Calculate new days taken
+      // Parse current days taken as float to handle decimal values
+      const currentDaysTaken = parseFloat(currentTask.days_taken || 0);
+
+      // Calculate new days taken - round to 1 decimal place for consistency
       const newDaysTaken = Math.max(
         0,
-        (currentTask.days_taken || 0) + increment
+        Math.round((currentDaysTaken + increment) * 10) / 10
       );
+
+      console.log(`Updating days taken for task ${task.id}:`);
+      console.log(
+        `  Original value: ${
+          currentTask.days_taken
+        } (${typeof currentTask.days_taken})`
+      );
+      console.log(
+        `  Parsed value: ${currentDaysTaken} (${typeof currentDaysTaken})`
+      );
+      console.log(`  Increment: ${increment} (${typeof increment})`);
+      console.log(`  New value: ${newDaysTaken} (${typeof newDaysTaken})`);
+
+      // ... rest of function
 
       // Calculate new RAG status using enhanced calculation
       const ragResult = await calculateEnhancedRagStatus(

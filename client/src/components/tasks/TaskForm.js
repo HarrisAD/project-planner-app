@@ -178,8 +178,8 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
     const taskData = {
       ...data,
       projectId: parseInt(data.projectId),
-      daysAssigned: parseInt(data.daysAssigned),
-      daysTaken: parseInt(data.daysTaken || 0),
+      daysAssigned: parseFloat(data.daysAssigned),
+      daysTaken: parseFloat(data.daysTaken || 0),
       subTaskName: data.subTaskName, // New field
       rag: ragInfo.ragStatus, // Use calculated RAG status
     };
@@ -254,7 +254,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             {/* Sub Task Name - new field */}
             <Grid item xs={12}>
               <Controller
@@ -270,7 +269,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             <Grid item xs={12}>
               <Controller
                 name="projectId"
@@ -304,7 +302,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <Controller
                 name="assignee"
@@ -342,7 +339,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             {/* Persona Dropdown */}
             <Grid item xs={12} sm={6}>
               <Controller
@@ -365,7 +361,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <Controller
                 name="status"
@@ -383,7 +378,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             {/* Start Date Field */}
             <Grid item xs={12} sm={6}>
               <Controller
@@ -403,7 +397,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <Controller
                 name="dueDate"
@@ -422,20 +415,27 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <Controller
                 name="daysAssigned"
                 control={control}
                 rules={{
                   required: 'Days assigned is required',
-                  min: { value: 1, message: 'Must be at least 1 day' },
+                  min: { value: 0.5, message: 'Must be at least 0.5 days' },
+                  validate: {
+                    isNumber: (value) =>
+                      !isNaN(parseFloat(value)) || 'Must be a valid number',
+                  },
                 }}
                 render={({ field }) => (
                   <TextField
                     {...field}
                     label="Days Assigned"
                     type="number"
+                    inputProps={{
+                      step: 0.5,
+                      min: 0.5,
+                    }}
                     fullWidth
                     error={!!errors.daysAssigned}
                     helperText={errors.daysAssigned?.message}
@@ -443,7 +443,34 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="daysTaken"
+                control={control}
+                rules={{
+                  validate: {
+                    isNumber: (value) =>
+                      !isNaN(parseFloat(value)) || 'Must be a valid number',
+                    notNegative: (value) =>
+                      parseFloat(value) >= 0 || 'Cannot be negative',
+                  },
+                }}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Days Taken"
+                    type="number"
+                    inputProps={{
+                      step: 0.5,
+                      min: 0,
+                    }}
+                    fullWidth
+                    error={!!errors.daysTaken}
+                    helperText={errors.daysTaken?.message}
+                  />
+                )}
+              />
+            </Grid>{' '}
             <Grid item xs={12} sm={6}>
               <Controller
                 name="daysTaken"
@@ -460,7 +487,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             {/* RAG Status Display (Read-only) */}
             <Grid item xs={12} sm={6}>
               <Box sx={{ mt: 1 }}>
@@ -479,7 +505,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 </Tooltip>
               </Box>
             </Grid>
-
             {/* Task Description */}
             <Grid item xs={12}>
               <Controller
@@ -497,7 +522,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             {/* Path to Green */}
             <Grid item xs={12}>
               <Controller
@@ -515,7 +539,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>
-
             {/* Tau Notes */}
             <Grid item xs={12}>
               <Controller
