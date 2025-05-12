@@ -336,6 +336,11 @@ router.get('/workload-summary', async (req, res) => {
         endDate = new Date(now);
         endDate.setDate(endDate.getDate() + 30);
         break;
+      case 'twomonth': // Add this new case
+        // Next 60 days
+        endDate = new Date(now);
+        endDate.setDate(endDate.getDate() + 60);
+        break;
       case 'quarter':
         // Next 90 days
         endDate = new Date(now);
