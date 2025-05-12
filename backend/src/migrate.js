@@ -11,7 +11,8 @@ const migrations = [
   '005_resource_allocation_enhancements.sql',
   '006_enhance_tasks_fields.sql',
   '007_update_tasks_subtask_structure.sql',
-  '008_update_days_to_decimal.sql', // New migration
+  '008_update_days_to_decimal.sql',
+  '009_enforce_decimal_types.sql', // New migration
 ];
 
 async function runMigrations() {
