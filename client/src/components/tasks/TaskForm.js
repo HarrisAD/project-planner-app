@@ -24,7 +24,7 @@ import {
   taskService,
 } from '../../services/api';
 import { calculateTaskRagStatus } from '../../utils/dateUtils';
-
+import { determineTaskStatus } from '../../utils/dateUtils';
 // Define persona options
 const PERSONA_OPTIONS = [
   { value: 'exec_sponsor', label: 'Exec Sponsor' },
@@ -124,6 +124,8 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   }, [daysAssigned, daysTaken, dueDate]);
 
   // Reset form when initialData changes (when editing)
+
+  // Update the useEffect for initialData
   useEffect(() => {
     if (initialData) {
       // Create function to properly format date without timezone issues
@@ -141,17 +143,28 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
         return `${year}-${month}-${day}`;
       };
 
+      // Ensure decimal values are properly formatted
+      const daysAssigned =
+        typeof initialData.days_assigned === 'string'
+          ? parseFloat(initialData.days_assigned)
+          : initialData.days_assigned;
+
+      const daysTaken =
+        typeof initialData.days_taken === 'string'
+          ? parseFloat(initialData.days_taken)
+          : initialData.days_taken;
+
       reset({
         name: initialData.name || '',
-        subTaskName: initialData.sub_task_name || '', // New field
+        subTaskName: initialData.sub_task_name || '',
         projectId: initialData.project_id || '',
         assignee: initialData.assignee || '',
         status: initialData.status || 'Not Started',
         rag: initialData.rag || 1,
         startDate: formatDateForInput(initialData.start_date),
         dueDate: formatDateForInput(initialData.due_date),
-        daysAssigned: initialData.days_assigned || '',
-        daysTaken: initialData.days_taken || 0,
+        daysAssigned: isNaN(daysAssigned) ? '' : daysAssigned.toFixed(1),
+        daysTaken: isNaN(daysTaken) ? 0 : daysTaken.toFixed(1),
         description: initialData.description || '',
         tauNotes: initialData.tau_notes || '',
         pathToGreen: initialData.path_to_green || '',
@@ -159,7 +172,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
       });
     }
   }, [initialData, reset]);
-
   // Update assignee field when editing and assignees are loaded
   useEffect(() => {
     if (initialData && initialData.assignee && assignees.length > 0) {
@@ -174,18 +186,36 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
   }, [initialData, assignees, setValue]);
 
   const handleFormSubmit = (data) => {
+    // Parse values as floats
+    const daysAssigned = parseFloat(data.daysAssigned);
+    const daysTaken = parseFloat(data.daysTaken || 0);
+
+    // Only calculate the status if one wasn't explicitly selected
+    let finalStatus;
+    if (data.status && data.status !== 'Not Started') {
+      // Use the explicitly selected status
+      finalStatus = data.status;
+    } else {
+      // Calculate based on days
+      finalStatus = determineTaskStatus(daysTaken, daysAssigned, null);
+    }
+
     // Convert string values to proper types
     const taskData = {
       ...data,
       projectId: parseInt(data.projectId),
-      daysAssigned: parseFloat(data.daysAssigned),
-      daysTaken: parseFloat(data.daysTaken || 0),
-      subTaskName: data.subTaskName, // New field
+      daysAssigned: daysAssigned,
+      daysTaken: daysTaken,
+      status: finalStatus, // Use the explicit or calculated status
+      subTaskName: data.subTaskName,
       rag: ragInfo.ragStatus, // Use calculated RAG status
     };
 
     // Log the data being submitted
-    console.log('Submitting task data with sub-task:', taskData);
+    console.log(
+      'Submitting task data with sub-task and calculated status:',
+      taskData
+    );
 
     onSubmit(taskData);
     reset();
@@ -471,22 +501,6 @@ function TaskForm({ open, onClose, onSubmit, initialData, isEdit }) {
                 )}
               />
             </Grid>{' '}
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="daysTaken"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Days Taken"
-                    type="number"
-                    fullWidth
-                    error={!!errors.daysTaken}
-                    helperText={errors.daysTaken?.message}
-                  />
-                )}
-              />
-            </Grid>
             {/* RAG Status Display (Read-only) */}
             <Grid item xs={12} sm={6}>
               <Box sx={{ mt: 1 }}>
