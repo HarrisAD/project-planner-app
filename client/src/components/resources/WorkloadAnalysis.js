@@ -133,10 +133,20 @@ function WorkloadAnalysis() {
                   const proratedAllocation = calculateProratedAllocation(
                     assignee.allocated
                   );
-                  const allocationPercentage = Math.round(
-                    (proratedAllocation / assignee.totalCapacity) * 100
-                  );
-
+                  // Calculate allocation percentage
+                  let allocationPercentage;
+                  if (assignee.totalCapacity > 0) {
+                    // Normal case - we have capacity
+                    allocationPercentage = Math.round(
+                      (proratedAllocation / assignee.totalCapacity) * 100
+                    );
+                  } else if (proratedAllocation > 0) {
+                    // No capacity but has allocation - show as 1000% (extremely overallocated)
+                    allocationPercentage = 1000;
+                  } else {
+                    // No capacity and no allocation - 0%
+                    allocationPercentage = 0;
+                  }
                   return (
                     <Box key={assignee.assignee} sx={{ mb: 4 }}>
                       <Box

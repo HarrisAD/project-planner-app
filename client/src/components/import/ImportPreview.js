@@ -178,15 +178,22 @@ function ImportPreview({ data, columnMapping, onBack, onComplete }) {
             Back to Column Mapping
           </Button>
 
-          <Button
-            variant="outlined"
-            color="error"
-            onClick={() => {
-              setValidationErrors([]);
-            }}
-          >
-            Dismiss Errors
-          </Button>
+          <Box>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => {
+                setValidationErrors([]);
+              }}
+              sx={{ mr: 2 }}
+            >
+              Dismiss Errors
+            </Button>
+
+            <Button variant="contained" color="primary" onClick={onComplete}>
+              Cancel Import
+            </Button>
+          </Box>
         </Box>
       </Paper>
     );
