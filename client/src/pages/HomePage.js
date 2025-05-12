@@ -181,107 +181,142 @@ function HomePage() {
           timeframe: 'quarter',
         });
 
+      // Collect all unique assignees from all timeframes
+      const allAssigneeNames = new Set([
+        ...weekResponse.data.workload.map((a) => a.assignee),
+        ...monthResponse.data.workload.map((a) => a.assignee),
+        ...quarterResponse.data.workload.map((a) => a.assignee),
+      ]);
+
       // Transform data for easier display
-      const assignees = weekResponse.data.workload.map((assignee) => {
-        // Find corresponding data in other responses
+      const assignees = Array.from(allAssigneeNames).map((assigneeName) => {
+        // Find data in each timeframe (or use default if not found)
+        const weekData = weekResponse.data.workload.find(
+          (a) => a.assignee === assigneeName
+        ) || {
+          assignee: assigneeName,
+          allocated: 0,
+          totalCapacity: 0, // Changed from 1 to 0
+          allocationPercentage: 0,
+          allocationStatus: 'Unknown',
+          workingDaysPerWeek: 5, // Default value
+        };
+
         const monthData = monthResponse.data.workload.find(
-          (a) => a.assignee === assignee.assignee
+          (a) => a.assignee === assigneeName
         ) || {
           allocated: 0,
-          totalCapacity: 1,
+          totalCapacity: 0, // Changed from 1 to 0
           allocationPercentage: 0,
           allocationStatus: 'Unknown',
         };
 
         const quarterData = quarterResponse.data.workload.find(
-          (a) => a.assignee === assignee.assignee
+          (a) => a.assignee === assigneeName
         ) || {
           allocated: 0,
-          totalCapacity: 1,
+          totalCapacity: 0, // Changed from 1 to 0
           allocationPercentage: 0,
           allocationStatus: 'Unknown',
         };
 
-        // Use the same calculation method as WorkloadAnalysis.js
-        // Get raw allocated days and totalCapacity values
-        const weekAllocated = assignee.allocated || 0;
-        const weekCapacity = assignee.totalCapacity || 1; // Avoid division by zero
-        const monthAllocated = monthData.allocated || 0;
-        const monthCapacity = monthData.totalCapacity || 1; // Avoid division by zero
-        const quarterAllocated = quarterData.allocated || 0;
-        const quarterCapacity = quarterData.totalCapacity || 1; // Avoid division by zero
+        // Helper function to calculate allocation percentage
+        const calculateAllocation = (allocated, capacity) => {
+          if (capacity > 0) {
+            return Math.round((allocated / capacity) * 100);
+          } else if (allocated > 0) {
+            // If we have allocation but no capacity, show as 1000% (very overallocated)
+            return 1000; // Fixed high percentage to indicate extreme overallocation
+          } else {
+            return 0;
+          }
+        };
 
-        // Apply the same prorated calculation as WorkloadAnalysis.js
-        // For week, it divides by 3
+        // Helper function to determine allocation status
+        const determineStatus = (percentage) => {
+          if (percentage > 120) return 'Overallocated';
+          if (percentage > 90) return 'Full';
+          if (percentage > 50) return 'Balanced';
+          return 'Underallocated';
+        };
+
+        // Get raw values
+        const weekAllocated = weekData.allocated || 0;
+        const weekCapacity = weekData.totalCapacity || 0;
+        const monthAllocated = monthData.allocated || 0;
+        const monthCapacity = monthData.totalCapacity || 0;
+        const quarterAllocated = quarterData.allocated || 0;
+        const quarterCapacity = quarterData.totalCapacity || 0;
+
+        // Calculate prorated allocations
         const weekProratedAllocation = weekAllocated;
-        // For month and quarter, it uses the value as-is
         const monthProratedAllocation = monthAllocated;
         const quarterProratedAllocation = quarterAllocated;
 
-        // Calculate 2-month allocation using interpolation between month and quarter raw values
+        // Calculate 2-month allocation using interpolation between month and quarter
         const twoMonthProratedAllocation =
           (2 * monthProratedAllocation + quarterProratedAllocation) / 3;
         const twoMonthCapacity = (2 * monthCapacity + quarterCapacity) / 3;
 
-        // Calculate percentages from prorated values, exactly as WorkloadAnalysis.js does
-        const weekAllocation = Math.round(
-          (weekProratedAllocation / weekCapacity) * 100
+        // Calculate percentages with our helper function
+        const weekAllocation = calculateAllocation(
+          weekProratedAllocation,
+          weekCapacity
         );
-        const monthAllocation = Math.round(
-          (monthProratedAllocation / monthCapacity) * 100
+        const monthAllocation = calculateAllocation(
+          monthProratedAllocation,
+          monthCapacity
         );
-        const twoMonthAllocation = Math.round(
-          (twoMonthProratedAllocation / twoMonthCapacity) * 100
+        const twoMonthAllocation = calculateAllocation(
+          twoMonthProratedAllocation,
+          twoMonthCapacity
         );
-        const threeMonthAllocation = Math.round(
-          (quarterProratedAllocation / quarterCapacity) * 100
+        const threeMonthAllocation = calculateAllocation(
+          quarterProratedAllocation,
+          quarterCapacity
         );
 
+        // For debugging
+        console.log(`${assigneeName} allocations:`, {
+          week: `${weekProratedAllocation}/${weekCapacity} = ${weekAllocation}%`,
+          month: `${monthProratedAllocation}/${monthCapacity} = ${monthAllocation}%`,
+          twoMonth: `${twoMonthProratedAllocation}/${twoMonthCapacity} = ${twoMonthAllocation}%`,
+          quarter: `${quarterProratedAllocation}/${quarterCapacity} = ${threeMonthAllocation}%`,
+        });
+
         return {
-          name: assignee.assignee,
+          name: assigneeName,
           week: {
             allocation: weekAllocation,
-            status:
-              weekAllocation > 120
-                ? 'Overallocated'
-                : weekAllocation > 90
-                ? 'Full'
-                : weekAllocation > 50
-                ? 'Balanced'
-                : 'Underallocated',
+            status: determineStatus(weekAllocation),
+            details: {
+              allocated: weekProratedAllocation.toFixed(1),
+              capacity: weekCapacity.toFixed(1),
+            },
           },
           month: {
             allocation: monthAllocation,
-            status:
-              monthAllocation > 120
-                ? 'Overallocated'
-                : monthAllocation > 90
-                ? 'Full'
-                : monthAllocation > 50
-                ? 'Balanced'
-                : 'Underallocated',
+            status: determineStatus(monthAllocation),
+            details: {
+              allocated: monthProratedAllocation.toFixed(1),
+              capacity: monthCapacity.toFixed(1),
+            },
           },
           twoMonths: {
             allocation: twoMonthAllocation,
-            status:
-              twoMonthAllocation > 120
-                ? 'Overallocated'
-                : twoMonthAllocation > 90
-                ? 'Full'
-                : twoMonthAllocation > 50
-                ? 'Balanced'
-                : 'Underallocated',
+            status: determineStatus(twoMonthAllocation),
+            details: {
+              allocated: twoMonthProratedAllocation.toFixed(1),
+              capacity: twoMonthCapacity.toFixed(1),
+            },
           },
           threeMonths: {
             allocation: threeMonthAllocation,
-            status:
-              threeMonthAllocation > 120
-                ? 'Overallocated'
-                : threeMonthAllocation > 90
-                ? 'Full'
-                : threeMonthAllocation > 50
-                ? 'Balanced'
-                : 'Underallocated',
+            status: determineStatus(threeMonthAllocation),
+            details: {
+              allocated: quarterProratedAllocation.toFixed(1),
+              capacity: quarterCapacity.toFixed(1),
+            },
           },
         };
       });
@@ -696,7 +731,27 @@ function HomePage() {
                     <TableCell>{assignee.name}</TableCell>
                     <TableCell>
                       <Tooltip
-                        title={`${assignee.week.allocation}% allocated (${assignee.week.status})`}
+                        title={
+                          <React.Fragment>
+                            <Typography variant="body2">
+                              <strong>Allocation:</strong>{' '}
+                              {assignee.week.allocation}% (
+                              {assignee.week.status})
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Calculation:</strong>{' '}
+                              {assignee.week.details.allocated} days allocated /{' '}
+                              {assignee.week.details.capacity} days capacity
+                            </Typography>
+                            {assignee.week.details.capacity === '0.0' &&
+                              assignee.week.details.allocated !== '0.0' && (
+                                <Typography variant="body2" color="error">
+                                  Warning: No capacity available but work is
+                                  allocated!
+                                </Typography>
+                              )}
+                          </React.Fragment>
+                        }
                       >
                         <Box sx={{ width: '100%' }}>
                           <LinearProgress
@@ -725,7 +780,27 @@ function HomePage() {
                     </TableCell>
                     <TableCell>
                       <Tooltip
-                        title={`${assignee.month.allocation}% allocated (${assignee.month.status})`}
+                        title={
+                          <React.Fragment>
+                            <Typography variant="body2">
+                              <strong>Allocation:</strong>{' '}
+                              {assignee.month.allocation}% (
+                              {assignee.month.status})
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Calculation:</strong>{' '}
+                              {assignee.month.details.allocated} days allocated
+                              / {assignee.month.details.capacity} days capacity
+                            </Typography>
+                            {assignee.month.details.capacity === '0.0' &&
+                              assignee.month.details.allocated !== '0.0' && (
+                                <Typography variant="body2" color="error">
+                                  Warning: No capacity available but work is
+                                  allocated!
+                                </Typography>
+                              )}
+                          </React.Fragment>
+                        }
                       >
                         <Box sx={{ width: '100%' }}>
                           <LinearProgress
@@ -754,17 +829,42 @@ function HomePage() {
                     </TableCell>
                     <TableCell>
                       <Tooltip
-                        title={`${Math.round(
-                          assignee.twoMonths.allocation
-                        )}% allocated (${assignee.twoMonths.status})`}
+                        title={
+                          <React.Fragment>
+                            <Typography variant="body2">
+                              <strong>Allocation:</strong>{' '}
+                              {assignee.twoMonth.allocation}% (
+                              {assignee.twoMonth.status})
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Calculation:</strong>{' '}
+                              {assignee.twoMonth.details.allocated} days
+                              allocated / {assignee.twoMonth.details.capacity}{' '}
+                              days capacity
+                            </Typography>
+                            {assignee.twoMonth.details.capacity === '0.0' &&
+                              assignee.twoMonth.details.allocated !== '0.0' && (
+                                <Typography variant="body2" color="error">
+                                  Warning: No capacity available but work is
+                                  allocated!
+                                </Typography>
+                              )}
+                          </React.Fragment>
+                        }
                       >
                         <Box sx={{ width: '100%' }}>
                           <LinearProgress
                             variant="determinate"
-                            value={Math.min(100, assignee.twoMonths.allocation)}
-                            color={getAllocationColor(
-                              assignee.twoMonths.status
-                            )}
+                            value={Math.min(100, assignee.twoMonth.allocation)}
+                            color={
+                              assignee.twoMonth.status === 'Overallocated'
+                                ? 'error'
+                                : assignee.twoMonth.status === 'Full'
+                                ? 'warning'
+                                : assignee.twoMonth.status === 'Balanced'
+                                ? 'success'
+                                : 'info'
+                            }
                             sx={{ height: 10, borderRadius: 5 }}
                           />
                           <Typography
@@ -772,16 +872,37 @@ function HomePage() {
                             display="block"
                             textAlign="center"
                           >
-                            {Math.round(assignee.twoMonths.allocation)}%
+                            {assignee.twoMonth.allocation}%
                           </Typography>
                         </Box>
                       </Tooltip>
                     </TableCell>
                     <TableCell>
                       <Tooltip
-                        title={`${Math.round(
-                          assignee.threeMonths.allocation
-                        )}% allocated (${assignee.threeMonths.status})`}
+                        title={
+                          <React.Fragment>
+                            <Typography variant="body2">
+                              <strong>Allocation:</strong>{' '}
+                              {assignee.threeMonths.allocation}% (
+                              {assignee.threeMonths.status})
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Calculation:</strong>{' '}
+                              {assignee.threeMonths.details.allocated} days
+                              allocated /{' '}
+                              {assignee.threeMonths.details.capacity} days
+                              capacity
+                            </Typography>
+                            {assignee.threeMonths.details.capacity === '0.0' &&
+                              assignee.threeMonths.details.allocated !==
+                                '0.0' && (
+                                <Typography variant="body2" color="error">
+                                  Warning: No capacity available but work is
+                                  allocated!
+                                </Typography>
+                              )}
+                          </React.Fragment>
+                        }
                       >
                         <Box sx={{ width: '100%' }}>
                           <LinearProgress
@@ -790,9 +911,15 @@ function HomePage() {
                               100,
                               assignee.threeMonths.allocation
                             )}
-                            color={getAllocationColor(
-                              assignee.threeMonths.status
-                            )}
+                            color={
+                              assignee.threeMonths.status === 'Overallocated'
+                                ? 'error'
+                                : assignee.threeMonths.status === 'Full'
+                                ? 'warning'
+                                : assignee.threeMonths.status === 'Balanced'
+                                ? 'success'
+                                : 'info'
+                            }
                             sx={{ height: 10, borderRadius: 5 }}
                           />
                           <Typography
@@ -800,7 +927,7 @@ function HomePage() {
                             display="block"
                             textAlign="center"
                           >
-                            {Math.round(assignee.threeMonths.allocation)}%
+                            {assignee.threeMonths.allocation}%
                           </Typography>
                         </Box>
                       </Tooltip>

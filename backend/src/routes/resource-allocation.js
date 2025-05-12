@@ -349,57 +349,104 @@ router.get('/workload-summary', async (req, res) => {
 
     endDate = endDate.toISOString().split('T')[0];
 
-    console.log('Date range:', startDate, 'to', endDate);
+    console.log(
+      `HOLIDAY DEBUG: Workload summary for timeframe: ${timeframe}, date range: ${startDate} to ${endDate}`
+    );
 
-    // Calculate business days in the period
-    const businessDaysInPeriod = await calculateBusinessDays(
+    // Calculate standard business days (without specific assignee holidays)
+    const standardBusinessDays = await calculateBusinessDays(
       startDate,
       endDate
     );
+    console.log(
+      `HOLIDAY DEBUG: Standard business days (no specific assignee): ${standardBusinessDays}`
+    );
+
+    // Get all assignees
+    const assigneesQuery = `SELECT id, name, working_days_per_week FROM assignees`;
+    const assigneesResult = await db.query(assigneesQuery);
+    const assignees = assigneesResult.rows;
+
+    console.log(`HOLIDAY DEBUG: Found ${assignees.length} assignees`);
+    for (const a of assignees) {
+      console.log(
+        `HOLIDAY DEBUG: Assignee: ${a.name}, ID: ${a.id}, Working days/week: ${a.working_days_per_week}`
+      );
+    }
 
     // Get all tasks for our period
     const tasksQuery = `
-        SELECT 
-          t.id,
-          t.assignee,
-          t.name,
-          t.status,
-          t.days_assigned,
-          t.days_taken,
-          t.start_date,
-          t.due_date,
-          a.working_days_per_week
-        FROM 
-          tasks t
-        LEFT JOIN
-          assignees a ON a.name = t.assignee
-        WHERE 
-          t.assignee IS NOT NULL 
-          AND t.status != 'Completed'
-          AND t.due_date >= $1
-          AND (t.start_date IS NULL OR t.start_date <= $2)
-      `;
+      SELECT 
+        t.id,
+        t.assignee,
+        t.name,
+        t.status,
+        t.days_assigned,
+        t.days_taken,
+        t.start_date,
+        t.due_date
+      FROM 
+        tasks t
+      WHERE 
+        t.assignee IS NOT NULL 
+        AND t.status != 'Completed'
+        AND t.due_date >= $1
+        AND (t.start_date IS NULL OR t.start_date <= $2)
+    `;
 
     const tasksResult = await db.query(tasksQuery, [startDate, endDate]);
-    console.log(`Found ${tasksResult.rows.length} tasks in period`);
+    console.log(
+      `HOLIDAY DEBUG: Found ${tasksResult.rows.length} tasks in period`
+    );
 
     // Process task data
     const assigneeMap = {};
 
+    // Initialize data for all assignees
+    for (const assignee of assignees) {
+      const assigneeName = assignee.name;
+
+      console.log(
+        `HOLIDAY DEBUG: Calculating capacity for assignee: ${assigneeName}`
+      );
+
+      // Calculate business days for this specific assignee (considering their holidays)
+      const businessDaysForAssignee = await calculateBusinessDays(
+        startDate,
+        endDate,
+        assigneeName
+      );
+
+      // Calculate capacity based on working days per week and holidays
+      const workingDaysPerWeek =
+        parseFloat(assignee.working_days_per_week) || 5;
+      const totalCapacity =
+        Math.round(businessDaysForAssignee * (workingDaysPerWeek / 5) * 10) /
+        10;
+
+      console.log(
+        `HOLIDAY DEBUG: Assignee ${assigneeName}: ${businessDaysForAssignee} business days, ${workingDaysPerWeek} days/week, capacity: ${totalCapacity}`
+      );
+
+      assigneeMap[assigneeName] = {
+        assignee: assigneeName,
+        workingDaysPerWeek,
+        totalCapacity,
+        allocated: 0,
+        activeTasks: 0,
+      };
+    }
+
+    // Process tasks
     for (const task of tasksResult.rows) {
       const assigneeName = task.assignee;
 
-      // Skip if no assignee
-      if (!assigneeName) continue;
-
-      // Initialize assignee if needed
-      if (!assigneeMap[assigneeName]) {
-        assigneeMap[assigneeName] = {
-          assignee: assigneeName,
-          workingDaysPerWeek: task.working_days_per_week || 5,
-          allocated: 0,
-          activeTasks: 0,
-        };
+      // Skip if no assignee or the assignee isn't in our map
+      if (!assigneeName || !assigneeMap[assigneeName]) {
+        console.log(
+          `HOLIDAY DEBUG: Skipping task ${task.id} - assignee ${assigneeName} not found in map`
+        );
+        continue;
       }
 
       // Calculate days remaining on the task
@@ -409,7 +456,12 @@ router.get('/workload-summary', async (req, res) => {
       );
 
       // Skip if no work left
-      if (daysRemaining <= 0) continue;
+      if (daysRemaining <= 0) {
+        console.log(
+          `HOLIDAY DEBUG: Skipping task ${task.id} - no work remaining`
+        );
+        continue;
+      }
 
       // Count active task
       assigneeMap[assigneeName].activeTasks++;
@@ -424,20 +476,23 @@ router.get('/workload-summary', async (req, res) => {
       const filterStartDate = new Date(startDate);
       const filterEndDate = new Date(endDate);
 
-      // Debug log
-      console.log(`Task: ${task.name}, Assignee: ${task.assignee}`);
       console.log(
-        `  Start: ${taskStartDate.toISOString().split('T')[0]}, Due: ${
-          taskDueDate.toISOString().split('T')[0]
-        }`
+        `HOLIDAY DEBUG: Processing task ID ${task.id}, name: ${task.name}, assignee: ${assigneeName}`
       );
       console.log(
-        `  Filter period: ${filterStartDate.toISOString().split('T')[0]} to ${
-          filterEndDate.toISOString().split('T')[0]
-        }`
+        `HOLIDAY DEBUG: Task dates - start: ${
+          taskStartDate.toISOString().split('T')[0]
+        }, due: ${taskDueDate.toISOString().split('T')[0]}`
       );
       console.log(
-        `  Days assigned: ${task.days_assigned}, Days taken: ${task.days_taken}, Remaining: ${daysRemaining}`
+        `HOLIDAY DEBUG: Filter dates - start: ${
+          filterStartDate.toISOString().split('T')[0]
+        }, end: ${filterEndDate.toISOString().split('T')[0]}`
+      );
+      console.log(
+        `HOLIDAY DEBUG: Task metrics - assigned: ${
+          task.days_assigned
+        }, taken: ${task.days_taken || 0}, remaining: ${daysRemaining}`
       );
 
       // Make sure we're working with clean dates without time components
@@ -473,41 +528,54 @@ router.get('/workload-summary', async (req, res) => {
 
         // Calculate proportion
         proportion = Math.min(1, daysInPeriod / totalDays);
+
+        console.log(
+          `HOLIDAY DEBUG: Task allocation calculation - effective start: ${
+            effectiveStartDate.toISOString().split('T')[0]
+          }`
+        );
+        console.log(
+          `HOLIDAY DEBUG: Days in period: ${daysInPeriod}, total days: ${totalDays}, proportion: ${proportion.toFixed(
+            2
+          )}`
+        );
+      } else {
+        console.log(
+          `HOLIDAY DEBUG: Task ends within filter period, using full allocation`
+        );
       }
 
       // Calculate prorated allocation
       const prorated = daysRemaining * proportion;
       console.log(
-        `  Total days to complete: ${
-          Math.floor(
-            (taskDueDate - effectiveStartDate) / (1000 * 60 * 60 * 24)
-          ) + 1
-        }`
-      );
-      console.log(
-        `  Proportion: ${proportion.toFixed(
-          2
-        )}, Prorated allocation: ${prorated.toFixed(2)}`
+        `HOLIDAY DEBUG: Final prorated allocation: ${prorated.toFixed(2)} days`
       );
 
       // Add to assignee's allocation
       assigneeMap[assigneeName].allocated += prorated;
+      console.log(
+        `HOLIDAY DEBUG: Updated allocation for ${assigneeName}: ${assigneeMap[
+          assigneeName
+        ].allocated.toFixed(2)} days`
+      );
     }
 
     // Convert to array and calculate additional fields
     const workload = Object.values(assigneeMap).map((assignee) => {
-      // Calculate their total capacity based on working days per week
-      const workingDaysPerWeek = parseFloat(assignee.workingDaysPerWeek) || 5;
-
-      // Total working days in the period = business days * (working days per week / 5)
-      const totalCapacity =
-        Math.round(businessDaysInPeriod * (workingDaysPerWeek / 5) * 10) / 10;
-
       // Calculate allocation percentage
-      const allocationPercentage =
-        totalCapacity > 0
-          ? Math.round((assignee.allocated / totalCapacity) * 100)
-          : 0;
+      let allocationPercentage;
+      if (assignee.totalCapacity > 0) {
+        // Normal case - we have capacity
+        allocationPercentage = Math.round(
+          (assignee.allocated / assignee.totalCapacity) * 100
+        );
+      } else if (assignee.allocated > 0) {
+        // No capacity but has allocation - show as 100% (or overallocated)
+        allocationPercentage = 1000;
+      } else {
+        // No capacity and no allocation - 0%
+        allocationPercentage = 0;
+      }
 
       // Determine allocation status
       let allocationStatus;
@@ -521,10 +589,20 @@ router.get('/workload-summary', async (req, res) => {
         allocationStatus = 'Underallocated';
       }
 
+      console.log(
+        `HOLIDAY DEBUG: Final calculation for ${
+          assignee.assignee
+        }: capacity=${assignee.totalCapacity.toFixed(
+          1
+        )}, allocated=${assignee.allocated.toFixed(
+          1
+        )}, percentage=${allocationPercentage}%, status=${allocationStatus}`
+      );
+
       return {
         assignee: assignee.assignee,
-        workingDaysPerWeek,
-        totalCapacity,
+        workingDaysPerWeek: assignee.workingDaysPerWeek,
+        totalCapacity: assignee.totalCapacity,
         allocated: assignee.allocated,
         allocationPercentage,
         allocationStatus,
@@ -535,17 +613,22 @@ router.get('/workload-summary', async (req, res) => {
     res.json({
       startDate,
       endDate,
-      businessDays: businessDaysInPeriod,
+      businessDays: standardBusinessDays,
       workload,
     });
   } catch (err) {
-    console.error('Error fetching workload summary:', err);
+    console.error('HOLIDAY DEBUG: Error in workload summary:', err);
     res.status(500).json({ error: 'Failed to fetch workload summary' });
   }
 });
+// Helper function to calculate business days between two dates for a specific assignee name
+async function calculateBusinessDays(startDate, endDate, assigneeName = null) {
+  console.log(
+    `HOLIDAY DEBUG: calculateBusinessDays for ${
+      assigneeName || 'Standard'
+    } from ${startDate} to ${endDate}`
+  );
 
-// Helper function to calculate business days between two dates
-async function calculateBusinessDays(startDate, endDate) {
   // Convert to Date objects
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -566,30 +649,172 @@ async function calculateBusinessDays(startDate, endDate) {
       (h) => h.holiday_date.toISOString().split('T')[0]
     );
 
+    console.log(
+      `HOLIDAY DEBUG: Found ${holidays.length} public holidays: ${holidays.join(
+        ', '
+      )}`
+    );
+
+    // If we have an assigneeName, look up their ID and get their personal holidays
+    let assigneeHolidays = [];
+    let assigneeId = null;
+
+    if (assigneeName) {
+      // First, look up the assignee ID from their name
+      const assigneeQuery = `
+        SELECT id FROM assignees WHERE name = $1
+      `;
+
+      console.log(
+        `HOLIDAY DEBUG: Looking up ID for assignee "${assigneeName}"`
+      );
+      const assigneeResult = await db.query(assigneeQuery, [assigneeName]);
+
+      if (assigneeResult.rows.length > 0) {
+        assigneeId = assigneeResult.rows[0].id;
+        console.log(`HOLIDAY DEBUG: Found assignee ID: ${assigneeId}`);
+
+        // Get basic single-day holidays
+        const singleDayQuery = `
+          SELECT holiday_date 
+          FROM assignee_holidays
+          WHERE assignee_id = $1 
+          AND holiday_date BETWEEN $2 AND $3
+          AND date_end IS NULL
+        `;
+
+        console.log(
+          `HOLIDAY DEBUG: Looking up single-day holidays for assignee ID ${assigneeId}`
+        );
+        const singleDayResult = await db.query(singleDayQuery, [
+          assigneeId,
+          startDate,
+          endDate,
+        ]);
+        console.log(
+          `HOLIDAY DEBUG: Found ${singleDayResult.rows.length} single-day holidays`
+        );
+
+        // Extract dates and add to assigneeHolidays
+        const singleDays = singleDayResult.rows.map(
+          (h) => h.holiday_date.toISOString().split('T')[0]
+        );
+        assigneeHolidays.push(...singleDays);
+
+        console.log(
+          `HOLIDAY DEBUG: Single-day holidays: ${singleDays.join(', ')}`
+        );
+
+        // Get date ranges
+        const rangeQuery = `
+          SELECT holiday_date, date_end
+          FROM assignee_holidays
+          WHERE assignee_id = $1 
+          AND (
+            (holiday_date BETWEEN $2 AND $3) OR
+            (date_end BETWEEN $2 AND $3) OR
+            (holiday_date <= $2 AND date_end >= $3)
+          )
+          AND date_end IS NOT NULL
+        `;
+
+        console.log(
+          `HOLIDAY DEBUG: Looking up date ranges for assignee ID ${assigneeId}`
+        );
+        const rangeResult = await db.query(rangeQuery, [
+          assigneeId,
+          startDate,
+          endDate,
+        ]);
+        console.log(
+          `HOLIDAY DEBUG: Found ${rangeResult.rows.length} date ranges`
+        );
+
+        // Process date ranges into individual dates
+        for (const range of rangeResult.rows) {
+          const rangeStart = new Date(range.holiday_date);
+          const rangeEnd = new Date(range.date_end);
+
+          console.log(
+            `HOLIDAY DEBUG: Processing range ${
+              rangeStart.toISOString().split('T')[0]
+            } to ${rangeEnd.toISOString().split('T')[0]}`
+          );
+
+          // Set time to beginning of day
+          rangeStart.setHours(0, 0, 0, 0);
+          rangeEnd.setHours(0, 0, 0, 0);
+
+          // Add all dates in the range to holidays
+          const currentDate = new Date(rangeStart);
+          const rangeDays = [];
+
+          while (currentDate <= rangeEnd) {
+            // Only add dates that fall within our calculation period
+            if (currentDate >= start && currentDate <= end) {
+              const dateString = currentDate.toISOString().split('T')[0];
+              rangeDays.push(dateString);
+              assigneeHolidays.push(dateString);
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          console.log(
+            `HOLIDAY DEBUG: Range expanded to days: ${rangeDays.join(', ')}`
+          );
+        }
+      } else {
+        console.log(
+          `HOLIDAY DEBUG: No assignee found with name "${assigneeName}"`
+        );
+      }
+    }
+
+    // Combine all holidays and remove duplicates
+    const allHolidays = [...new Set([...holidays, ...assigneeHolidays])];
+    console.log(
+      `HOLIDAY DEBUG: Total holidays (public + assignee): ${allHolidays.length}`
+    );
+    console.log(`HOLIDAY DEBUG: All holidays: ${allHolidays.join(', ')}`);
+
     // Calculate days
     let days = 0;
     const current = new Date(start);
+    const workingDays = [];
+    const holidayDays = [];
 
     while (current <= end) {
       // Check if it's a weekday and not a holiday
       const dayOfWeek = current.getDay();
       const dateString = current.toISOString().split('T')[0];
 
-      if (
-        dayOfWeek !== 0 &&
-        dayOfWeek !== 6 &&
-        !holidays.includes(dateString)
-      ) {
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isHoliday = allHolidays.includes(dateString);
+
+      if (!isWeekend && !isHoliday) {
         days++;
+        workingDays.push(dateString);
+      } else if (isHoliday) {
+        holidayDays.push(dateString);
       }
 
       // Move to next day
       current.setDate(current.getDate() + 1);
     }
 
+    console.log(`HOLIDAY DEBUG: Working days: ${workingDays.join(', ')}`);
+    console.log(
+      `HOLIDAY DEBUG: Weekend or holiday days: ${holidayDays.join(', ')}`
+    );
+    console.log(
+      `HOLIDAY DEBUG: Final business days for ${
+        assigneeName || 'Standard'
+      }: ${days}`
+    );
+
     return days;
   } catch (error) {
-    console.error('Error getting holidays:', error);
+    console.error('HOLIDAY DEBUG: Error in calculateBusinessDays:', error);
 
     // Fallback calculation without holidays
     let days = 0;
@@ -606,8 +831,8 @@ async function calculateBusinessDays(startDate, endDate) {
       current.setDate(current.getDate() + 1);
     }
 
+    console.log(`HOLIDAY DEBUG: Fallback business days (no holidays): ${days}`);
     return days;
   }
 }
-
 module.exports = router;
