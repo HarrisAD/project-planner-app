@@ -68,6 +68,7 @@ router.get('/', async (req, res) => {
 });
 // Create a new task
 
+// Create a new task
 router.post('/', async (req, res) => {
   const client = await db.pool.connect();
 
@@ -84,6 +85,7 @@ router.post('/', async (req, res) => {
       startDate,
       dueDate,
       daysAssigned,
+      daysTaken, // Add this to destructuring
       description,
       tauNotes,
       pathToGreen,
@@ -96,10 +98,30 @@ router.post('/', async (req, res) => {
         ? parseFloat(daysAssigned)
         : daysAssigned;
 
-    // Ensure the value is valid
+    // Parse daysTaken as float
+    const parsedDaysTaken =
+      typeof daysTaken === 'string' ? parseFloat(daysTaken) : daysTaken || 0;
+
+    // Ensure the values are valid
     const finalDaysAssigned = isNaN(parsedDaysAssigned)
       ? 0
       : parsedDaysAssigned;
+    const finalDaysTaken = isNaN(parsedDaysTaken) ? 0 : parsedDaysTaken;
+
+    let calculatedStatus;
+    if (status) {
+      // Use the explicitly provided status
+      calculatedStatus = status;
+    } else {
+      // Calculate based on days
+      if (finalDaysTaken === 0) {
+        calculatedStatus = 'Not Started';
+      } else if (finalDaysTaken < finalDaysAssigned) {
+        calculatedStatus = 'In Progress';
+      } else {
+        calculatedStatus = 'Completed';
+      }
+    }
 
     // Debug log
     console.log(
@@ -109,11 +131,12 @@ router.post('/', async (req, res) => {
         subTaskName,
         projectId,
         assignee,
-        status,
+        status: calculatedStatus,
         rag,
         startDate,
         dueDate,
         daysAssigned: finalDaysAssigned,
+        daysTaken: finalDaysTaken,
         description,
         tauNotes,
         pathToGreen,
@@ -121,7 +144,7 @@ router.post('/', async (req, res) => {
       })
     );
 
-    // Print the type and value of daysAssigned
+    // Print the type and value of daysAssigned and daysTaken
     console.log(
       'Backend received daysAssigned:',
       daysAssigned,
@@ -131,6 +154,17 @@ router.post('/', async (req, res) => {
       finalDaysAssigned,
       'type:',
       typeof finalDaysAssigned
+    );
+
+    console.log(
+      'Backend received daysTaken:',
+      daysTaken,
+      'type:',
+      typeof daysTaken,
+      'parsed:',
+      finalDaysTaken,
+      'type:',
+      typeof finalDaysTaken
     );
 
     const taskResult = await client.query(
@@ -143,30 +177,34 @@ router.post('/', async (req, res) => {
       rag, 
       start_date, 
       due_date, 
-      days_assigned, 
+      days_assigned,
+      days_taken,
       description,
       tau_notes,
       path_to_green,
       persona
     ) 
-    VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, '')::DATE, NULLIF($8, '')::DATE, ROUND($9::DECIMAL, 1), $10, $11, $12, $13) 
+    VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, '')::DATE, NULLIF($8, '')::DATE, ROUND($9::DECIMAL, 1), ROUND($10::DECIMAL, 1), $11, $12, $13, $14) 
     RETURNING *`,
       [
         projectId,
         name,
         subTaskName || null,
         assignee,
-        status || 'Not Started',
+        calculatedStatus, // Use the calculated status
         rag || 1,
         startDate,
         dueDate,
         finalDaysAssigned,
+        finalDaysTaken, // Add days_taken to the query
         description,
         tauNotes || null,
         pathToGreen || null,
         persona || null,
       ]
     );
+
+    // ...rest of the function
 
     // Log the created task to see what was actually saved
     console.log('Created task:', {

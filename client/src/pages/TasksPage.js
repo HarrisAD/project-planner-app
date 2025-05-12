@@ -410,25 +410,56 @@ function TasksPage() {
       setLoading(true);
       const response = await taskService.getAll();
 
+      // Debug the raw data coming from the API
+      console.log('Raw API response for first task:', {
+        ...response.data[0],
+        days_assigned: response.data[0].days_assigned,
+        days_assigned_type: typeof response.data[0].days_assigned,
+        days_taken: response.data[0].days_taken,
+        days_taken_type: typeof response.data[0].days_taken,
+      });
+
       // Process each task to calculate enhanced RAG status
       const tasksPromises = response.data.map(async (task) => {
-        // Ensure values are properly parsed as floats
-        const daysAssigned = parseFloat(task.days_assigned);
-        const daysTaken = parseFloat(task.days_taken);
+        // Ensure values are properly parsed as floats with consistent decimal handling
+        const daysAssigned =
+          typeof task.days_assigned === 'string'
+            ? parseFloat(task.days_assigned)
+            : task.days_assigned;
+
+        const daysTaken =
+          typeof task.days_taken === 'string'
+            ? parseFloat(task.days_taken)
+            : task.days_taken;
 
         // Use safer defaults for null or NaN values
-        const finalDaysAssigned = isNaN(daysAssigned) ? 0 : daysAssigned;
-        const finalDaysTaken = isNaN(daysTaken) ? 0 : daysTaken;
+        const finalDaysAssigned = isNaN(daysAssigned)
+          ? 0
+          : parseFloat(daysAssigned.toFixed(1));
+        const finalDaysTaken = isNaN(daysTaken)
+          ? 0
+          : parseFloat(daysTaken.toFixed(1));
 
         const dueDate = task.due_date;
         const assignee = task.assignee;
 
         console.log(
-          `Task ${task.id}: days_assigned=${task.days_assigned}, parsed=${daysAssigned}, final=${finalDaysAssigned}`
+          `Task ${task.id}: days_assigned=${
+            task.days_assigned
+          } (${typeof task.days_assigned}), parsed=${daysAssigned}, final=${finalDaysAssigned}`
         );
 
+        // Create a normalized task object with properly formatted decimal values
+        const normalizedTask = {
+          ...task,
+          days_assigned: finalDaysAssigned,
+          days_taken: finalDaysTaken,
+        };
+
         let timeInfo = {
-          daysRemaining: Math.max(0, finalDaysAssigned - finalDaysTaken),
+          daysRemaining: parseFloat(
+            Math.max(0, finalDaysAssigned - finalDaysTaken).toFixed(1)
+          ),
           percentComplete:
             finalDaysAssigned > 0
               ? (finalDaysTaken / finalDaysAssigned) * 100
@@ -437,7 +468,6 @@ function TasksPage() {
           buffer: 0,
           calculatedRag: task.rag || 1, // Default to existing RAG
         };
-
         // ... rest of function
 
         // Calculate enhanced RAG status if we have all necessary data
@@ -464,7 +494,7 @@ function TasksPage() {
         }
 
         return {
-          ...task,
+          ...normalizedTask,
           timeInfo,
         };
       });
@@ -708,19 +738,10 @@ function TasksPage() {
       // Ensure daysAssigned and daysTaken are properly formatted as floats
       const processedData = {
         ...taskData,
-        daysAssigned: parseFloat(taskData.daysAssigned),
-        daysTaken: parseFloat(taskData.daysTaken || 0),
+        // Ensure these are parsed as floats with one decimal place precision
+        daysAssigned: parseFloat(parseFloat(taskData.daysAssigned).toFixed(1)),
+        daysTaken: parseFloat(parseFloat(taskData.daysTaken || 0).toFixed(1)),
       };
-
-      console.log(
-        'Updating task with data (including sub-task):',
-        processedData
-      );
-      console.log(
-        'Days assigned (should be a float):',
-        processedData.daysAssigned
-      );
-      console.log('Days taken (should be a float):', processedData.daysTaken);
 
       // Make sure subTaskName is being included in your API call
       await taskService.update(currentTask.id, processedData);
@@ -805,6 +826,8 @@ function TasksPage() {
       showNotification('Failed to delete task(s)', 'error');
     }
   };
+  // In client/src/pages/TasksPage.js - handleQuickUpdateDaysTaken function
+
   const handleQuickUpdateDaysTaken = async (task, increment) => {
     try {
       // Get the current task from state first
@@ -813,32 +836,42 @@ function TasksPage() {
         throw new Error('Task not found in current state');
       }
 
-      // Parse current days taken as float to handle decimal values
-      const currentDaysTaken = parseFloat(currentTask.days_taken || 0);
+      // Helper function to safely parse values
+      const safeParseFloat = (value) => {
+        if (value === null || value === undefined || value === '') return 0;
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+          const parsed = parseFloat(value);
+          return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+      };
 
-      // Calculate new days taken - round to 1 decimal place for consistency
-      const newDaysTaken = Math.max(
-        0,
-        Math.round((currentDaysTaken + increment) * 10) / 10
+      // Ensure we handle numeric values properly
+      const currentDaysTaken = safeParseFloat(currentTask.days_taken);
+
+      // Calculate new days taken with fixed precision
+      const newDaysTaken = parseFloat(
+        Math.max(0, currentDaysTaken + increment).toFixed(1)
       );
 
       console.log(`Updating days taken for task ${task.id}:`);
       console.log(
-        `  Original value: ${
-          currentTask.days_taken
-        } (${typeof currentTask.days_taken})`
+        `  Original value:`,
+        currentTask.days_taken,
+        `(${typeof currentTask.days_taken})`
       );
       console.log(
-        `  Parsed value: ${currentDaysTaken} (${typeof currentDaysTaken})`
+        `  Parsed value:`,
+        currentDaysTaken,
+        `(${typeof currentDaysTaken})`
       );
-      console.log(`  Increment: ${increment} (${typeof increment})`);
-      console.log(`  New value: ${newDaysTaken} (${typeof newDaysTaken})`);
-
-      // ... rest of function
+      console.log(`  Increment:`, increment, `(${typeof increment})`);
+      console.log(`  New value:`, newDaysTaken, `(${typeof newDaysTaken})`);
 
       // Calculate new RAG status using enhanced calculation
       const ragResult = await calculateEnhancedRagStatus(
-        currentTask.days_assigned || 0,
+        safeParseFloat(currentTask.days_assigned),
         newDaysTaken,
         currentTask.due_date,
         currentTask.assignee
@@ -847,7 +880,7 @@ function TasksPage() {
       // Determine the new status based on the updated values
       const newStatus = determineTaskStatus(
         newDaysTaken,
-        currentTask.days_assigned,
+        safeParseFloat(currentTask.days_assigned),
         new Date() // Current time for the last update
       );
 
@@ -858,17 +891,15 @@ function TasksPage() {
         assignee: currentTask.assignee,
         status: newStatus, // Use the calculated status
         rag: ragResult.ragStatus,
-        startDate: currentTask.start_date, // Make sure to include the start date
+        startDate: currentTask.start_date,
         dueDate: currentTask.due_date,
-        daysAssigned: currentTask.days_assigned,
-        daysTaken: newDaysTaken,
+        daysAssigned: safeParseFloat(currentTask.days_assigned).toFixed(1),
+        daysTaken: newDaysTaken.toFixed(1), // Ensure consistent format
         description: currentTask.description || '',
         tauNotes: currentTask.tau_notes || '',
         pathToGreen: currentTask.path_to_green || '',
         persona: currentTask.persona || '',
-        isSubTask: currentTask.is_sub_task || false,
-        parentTaskId: currentTask.parent_task_id || null,
-        // No need to send lastUpdatedDays, the backend will set it automatically
+        subTaskName: currentTask.sub_task_name || '',
       };
 
       // Update the task
@@ -885,10 +916,15 @@ function TasksPage() {
             last_updated_days: new Date().toISOString(),
             timeInfo: {
               ...t.timeInfo,
-              daysRemaining: Math.max(0, t.days_assigned - newDaysTaken),
+              daysRemaining: parseFloat(
+                Math.max(
+                  0,
+                  safeParseFloat(t.days_assigned) - newDaysTaken
+                ).toFixed(1)
+              ),
               percentComplete:
-                t.days_assigned > 0
-                  ? (newDaysTaken / t.days_assigned) * 100
+                safeParseFloat(t.days_assigned) > 0
+                  ? (newDaysTaken / safeParseFloat(t.days_assigned)) * 100
                   : 0,
               businessDaysUntilDue: ragResult.assigneeWorkingDays,
               buffer: ragResult.buffer,
@@ -916,7 +952,6 @@ function TasksPage() {
       fetchTasks();
     }
   };
-
   // Handler for the "Select All" checkbox
   const handleSelectAllTasks = (event) => {
     if (event.target.checked) {
@@ -1222,20 +1257,20 @@ function TasksPage() {
                   <IconButton
                     size="small"
                     color="primary"
-                    onClick={() => handleQuickUpdateDaysTaken(task, 1)}
-                    title="Add 1 day"
+                    onClick={() => handleQuickUpdateDaysTaken(task, 0.5)}
+                    title="Add 0.5 days"
                   >
                     <AddIcon fontSize="small" />
                   </IconButton>
                   <IconButton
                     size="small"
                     color="primary"
-                    onClick={() => handleQuickUpdateDaysTaken(task, -1)}
-                    disabled={!task.days_taken}
-                    title="Remove 1 day"
+                    onClick={() => handleQuickUpdateDaysTaken(task, -0.5)}
+                    disabled={parseFloat(task.days_taken || 0) < 0.5}
+                    title="Remove 0.5 days"
                   >
                     <RemoveIcon fontSize="small" />
-                  </IconButton>
+                  </IconButton>{' '}
                 </Box>
 
                 {/* Percentage complete */}

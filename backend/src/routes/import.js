@@ -215,18 +215,53 @@ router.post('/tasks/process', async (req, res) => {
         continue;
       }
 
+      // Process date ranges into individual dates
+      // ...
+
+      // Parse days as floats to ensure decimal handling
+      const parsedDaysAssigned =
+        typeof task.daysAssigned === 'string'
+          ? parseFloat(task.daysAssigned)
+          : task.daysAssigned;
+      const parsedDaysTaken =
+        typeof task.daysTaken === 'string'
+          ? parseFloat(task.daysTaken)
+          : task.daysTaken;
+
+      // Ensure values are valid numbers
+      const finalDaysAssigned = isNaN(parsedDaysAssigned)
+        ? 0
+        : parsedDaysAssigned;
+      const finalDaysTaken = isNaN(parsedDaysTaken) ? 0 : parsedDaysTaken;
+
+      // Determine correct status based on days taken vs. assigned
+      let calculatedStatus;
+      if (status && status !== 'Not Started') {
+        // If status is explicitly provided and not the default
+        calculatedStatus = status;
+      } else {
+        // Calculate based on days
+        if (finalDaysTaken === 0) {
+          calculatedStatus = 'Not Started';
+        } else if (finalDaysTaken < finalDaysAssigned) {
+          calculatedStatus = 'In Progress';
+        } else {
+          calculatedStatus = 'Completed';
+        }
+      }
+
       // All validations passed, prepare task for insertion
       validTasks.push({
         project_id: projectId,
         name: task.name,
         sub_task_name: task.subTaskName || null,
         assignee: task.assignee,
-        status: status,
+        status: calculatedStatus, // Use calculated status
         rag: rag,
         start_date: startDate || null,
         due_date: dueDate || null,
-        days_assigned: parseInt(task.daysAssigned) || 0,
-        days_taken: parseInt(task.daysTaken) || 0,
+        days_assigned: finalDaysAssigned,
+        days_taken: finalDaysTaken,
         description: task.description || null,
         path_to_green: task.pathToGreen || null,
         tau_notes: task.tauNotes || null,

@@ -1,11 +1,12 @@
-// client/src/components/tasks/TimeUsageDisplay.js
-import React from 'react';
+// Replace the entire client/src/components/tasks/TimeUsageDisplay.js file
+
+import React, { useEffect, useState } from 'react';
 import { Box, Typography, LinearProgress, Tooltip } from '@mui/material';
 
 /**
  * Component to display time usage for a task
- * @param {number} daysAssigned - Total days assigned to task
- * @param {number} daysTaken - Days already spent on task
+ * @param {number|string} daysAssigned - Total days assigned to task
+ * @param {number|string} daysTaken - Days already spent on task
  * @param {number} ragStatus - Current RAG status (1=Green, 2=Amber, 3=Red)
  * @param {boolean} showPercentage - Whether to show percentage completion
  */
@@ -15,33 +16,53 @@ function TimeUsageDisplay({
   ragStatus,
   showPercentage = false,
 }) {
-  // Add debug log to see what values are being passed in
-  console.log('TimeUsageDisplay received:', {
-    daysAssigned,
-    daysTaken,
-    ragStatus,
+  // Use state to store processed values
+  const [processedValues, setProcessedValues] = useState({
+    daysAssigned: 1,
+    daysTaken: 0,
+    percentage: 0,
   });
 
-  // Parse values more carefully to handle edge cases like '0.0'
-  const formattedDaysTaken = parseFloat(daysTaken);
-  const formattedDaysAssigned = parseFloat(daysAssigned);
+  // Process values when props change
+  useEffect(() => {
+    // Helper function to safely parse numeric values
+    const safeParseFloat = (value) => {
+      if (value === null || value === undefined || value === '') return 0;
 
-  // Only use default values if the parsed value is NaN, not if it's 0
-  const finalDaysTaken = isNaN(formattedDaysTaken) ? 0 : formattedDaysTaken;
-  const finalDaysAssigned = isNaN(formattedDaysAssigned)
-    ? 1
-    : formattedDaysAssigned === 0
-    ? 0.1
-    : formattedDaysAssigned;
+      // If it's already a number, return it directly
+      if (typeof value === 'number') return value;
 
-  // Additional debug log to confirm parsed values
-  console.log('TimeUsageDisplay final values:', {
-    finalDaysTaken,
-    finalDaysAssigned,
-  });
+      // Try to parse it if it's a string
+      if (typeof value === 'string') {
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? 0 : parsed;
+      }
 
-  // Calculate percentage (capped at 100%)
-  const percentage = Math.min(100, (finalDaysTaken / finalDaysAssigned) * 100);
+      return 0;
+    };
+
+    // Process the values
+    const parsedDaysAssigned = safeParseFloat(daysAssigned);
+    const parsedDaysTaken = safeParseFloat(daysTaken);
+
+    // Ensure we have valid minimums
+    const finalDaysAssigned =
+      parsedDaysAssigned <= 0 ? 0.1 : parsedDaysAssigned;
+    const finalDaysTaken = parsedDaysTaken < 0 ? 0 : parsedDaysTaken;
+
+    // Calculate percentage
+    const percentage = Math.min(
+      100,
+      (finalDaysTaken / finalDaysAssigned) * 100
+    );
+
+    // Update state
+    setProcessedValues({
+      daysAssigned: finalDaysAssigned,
+      daysTaken: finalDaysTaken,
+      percentage,
+    });
+  }, [daysAssigned, daysTaken]);
 
   // Determine color based on RAG status
   let color = 'primary';
@@ -55,9 +76,11 @@ function TimeUsageDisplay({
 
   return (
     <Tooltip
-      title={`${finalDaysTaken.toFixed(1)} of ${finalDaysAssigned.toFixed(
+      title={`${processedValues.daysTaken.toFixed(
         1
-      )} days used (${Math.round(percentage)}%)`}
+      )} of ${processedValues.daysAssigned.toFixed(1)} days used (${Math.round(
+        processedValues.percentage
+      )}%)`}
       arrow
     >
       <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -65,14 +88,16 @@ function TimeUsageDisplay({
           <Box sx={{ flexGrow: 1, mr: 1 }}>
             <LinearProgress
               variant="determinate"
-              value={percentage}
+              value={processedValues.percentage}
               color={color}
               sx={{ height: 8, borderRadius: 4 }}
             />
           </Box>
           <Box sx={{ minWidth: 35 }}>
             <Typography variant="body2" color="text.secondary">
-              {`${finalDaysTaken.toFixed(1)}/${finalDaysAssigned.toFixed(1)}`}
+              {`${processedValues.daysTaken.toFixed(
+                1
+              )}/${processedValues.daysAssigned.toFixed(1)}`}
             </Typography>
           </Box>
         </Box>
@@ -84,11 +109,12 @@ function TimeUsageDisplay({
             align="center"
             sx={{ mt: 0.5 }}
           >
-            {Math.round(percentage)}% complete
+            {Math.round(processedValues.percentage)}% complete
           </Typography>
         )}
       </Box>
     </Tooltip>
   );
 }
+
 export default TimeUsageDisplay;

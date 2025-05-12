@@ -291,9 +291,9 @@ export const determineTaskStatus = (
   daysAssigned,
   lastUpdatedDays
 ) => {
-  // Parse values
-  const formattedDaysTaken = parseInt(daysTaken) || 0;
-  const formattedDaysAssigned = parseInt(daysAssigned) || 1;
+  // Parse values using parseFloat to handle decimal days correctly
+  const formattedDaysTaken = parseFloat(daysTaken) || 0;
+  const formattedDaysAssigned = parseFloat(daysAssigned) || 1;
 
   // Check if it's been more than a week since the last update
   const lastUpdated = lastUpdatedDays ? new Date(lastUpdatedDays) : null;
@@ -319,7 +319,6 @@ export const determineTaskStatus = (
     return 'Completed';
   }
 };
-
 /**
  * Format a date as a time ago string (e.g., "2 days ago")
  * @param {Date} date - The date to format
