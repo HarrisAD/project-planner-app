@@ -15,14 +15,33 @@ function TimeUsageDisplay({
   ragStatus,
   showPercentage = false,
 }) {
-  const formattedDaysTaken = parseInt(daysTaken) || 0;
-  const formattedDaysAssigned = parseInt(daysAssigned) || 1; // Prevent division by zero
+  // Add debug log to see what values are being passed in
+  console.log('TimeUsageDisplay received:', {
+    daysAssigned,
+    daysTaken,
+    ragStatus,
+  });
+
+  // Parse values more carefully to handle edge cases like '0.0'
+  const formattedDaysTaken = parseFloat(daysTaken);
+  const formattedDaysAssigned = parseFloat(daysAssigned);
+
+  // Only use default values if the parsed value is NaN, not if it's 0
+  const finalDaysTaken = isNaN(formattedDaysTaken) ? 0 : formattedDaysTaken;
+  const finalDaysAssigned = isNaN(formattedDaysAssigned)
+    ? 1
+    : formattedDaysAssigned === 0
+    ? 0.1
+    : formattedDaysAssigned;
+
+  // Additional debug log to confirm parsed values
+  console.log('TimeUsageDisplay final values:', {
+    finalDaysTaken,
+    finalDaysAssigned,
+  });
 
   // Calculate percentage (capped at 100%)
-  const percentage = Math.min(
-    100,
-    (formattedDaysTaken / formattedDaysAssigned) * 100
-  );
+  const percentage = Math.min(100, (finalDaysTaken / finalDaysAssigned) * 100);
 
   // Determine color based on RAG status
   let color = 'primary';
@@ -36,9 +55,9 @@ function TimeUsageDisplay({
 
   return (
     <Tooltip
-      title={`${formattedDaysTaken} of ${formattedDaysAssigned} days used (${Math.round(
-        percentage
-      )}%)`}
+      title={`${finalDaysTaken.toFixed(1)} of ${finalDaysAssigned.toFixed(
+        1
+      )} days used (${Math.round(percentage)}%)`}
       arrow
     >
       <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -53,7 +72,7 @@ function TimeUsageDisplay({
           </Box>
           <Box sx={{ minWidth: 35 }}>
             <Typography variant="body2" color="text.secondary">
-              {`${formattedDaysTaken}/${formattedDaysAssigned}`}
+              {`${finalDaysTaken.toFixed(1)}/${finalDaysAssigned.toFixed(1)}`}
             </Typography>
           </Box>
         </Box>
@@ -72,5 +91,4 @@ function TimeUsageDisplay({
     </Tooltip>
   );
 }
-
 export default TimeUsageDisplay;

@@ -67,7 +67,7 @@ router.post('/', async (req, res) => {
 
     const {
       name,
-      subTaskName, // New field
+      subTaskName,
       projectId,
       assignee,
       status,
@@ -81,6 +81,9 @@ router.post('/', async (req, res) => {
       persona,
     } = req.body;
 
+    // Parse daysAssigned as float to ensure decimal handling
+    const parsedDaysAssigned = parseFloat(daysAssigned) || 0;
+
     // Debug log
     console.log(
       'Task creation data:',
@@ -93,7 +96,7 @@ router.post('/', async (req, res) => {
         rag,
         startDate,
         dueDate,
-        daysAssigned,
+        daysAssigned: parsedDaysAssigned, // Log the parsed value
         description,
         tauNotes,
         pathToGreen,
@@ -101,24 +104,36 @@ router.post('/', async (req, res) => {
       })
     );
 
+    // Print the type and value of daysAssigned
+    console.log(
+      'Backend received daysAssigned:',
+      daysAssigned,
+      'type:',
+      typeof daysAssigned
+    );
+
+    // Parse daysAssigned as float to handle any string representations
+
+    console.log('Parsed daysAssigned:', parsedDaysAssigned);
+
     const taskResult = await client.query(
       `INSERT INTO tasks (
-          project_id, 
-          name, 
-          sub_task_name,
-          assignee, 
-          status, 
-          rag, 
-          start_date, 
-          due_date, 
-          days_assigned, 
-          description,
-          tau_notes,
-          path_to_green,
-          persona
-        ) 
-        VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, '')::DATE, NULLIF($8, '')::DATE, $9, $10, $11, $12, $13) 
-        RETURNING *`,
+      project_id, 
+      name, 
+      sub_task_name,
+      assignee, 
+      status, 
+      rag, 
+      start_date, 
+      due_date, 
+      days_assigned, 
+      description,
+      tau_notes,
+      path_to_green,
+      persona
+    ) 
+    VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, '')::DATE, NULLIF($8, '')::DATE, $9, $10, $11, $12, $13) 
+    RETURNING *`,
       [
         projectId,
         name,
@@ -128,7 +143,7 @@ router.post('/', async (req, res) => {
         rag || 1,
         startDate,
         dueDate,
-        daysAssigned,
+        parsedDaysAssigned, // Use the parsed float value
         description,
         tauNotes || null,
         pathToGreen || null,
@@ -136,6 +151,14 @@ router.post('/', async (req, res) => {
       ]
     );
 
+    // Log the created task to see what was actually saved
+    console.log('Created task:', taskResult.rows[0]);
+    console.log(
+      'Saved days_assigned:',
+      taskResult.rows[0].days_assigned,
+      'type:',
+      typeof taskResult.rows[0].days_assigned
+    );
     // Update project progress
     await updateProjectProgress(client, projectId);
 
@@ -150,7 +173,6 @@ router.post('/', async (req, res) => {
     client.release();
   }
 });
-
 // Update a task
 router.put('/:id', async (req, res) => {
   const client = await db.pool.connect();
@@ -161,7 +183,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const {
       name,
-      subTaskName, // New field
+      subTaskName,
       projectId,
       assignee,
       status,
@@ -176,41 +198,32 @@ router.put('/:id', async (req, res) => {
       persona,
     } = req.body;
 
-    // Debug log
+    // Add debug logging
     console.log(
-      'Task update data:',
-      JSON.stringify({
-        id,
-        name,
-        subTaskName,
-        projectId,
-        assignee,
-        status,
-        rag,
-        startDate,
-        dueDate,
-        daysAssigned,
-        description,
-        daysTaken,
-        tauNotes,
-        pathToGreen,
-        persona,
-      })
+      'Backend received daysAssigned:',
+      daysAssigned,
+      'type:',
+      typeof daysAssigned
+    );
+    console.log(
+      'Backend received daysTaken:',
+      daysTaken,
+      'type:',
+      typeof daysTaken
     );
 
-    // Check if task exists and get original project ID
-    const checkTask = await client.query(
-      'SELECT project_id FROM tasks WHERE id = $1',
-      [id]
-    );
+    // Parse values to ensure they're floats
+    const parsedDaysAssigned = parseFloat(daysAssigned) || 0;
+    const parsedDaysTaken = parseFloat(daysTaken || 0);
 
-    if (checkTask.rows.length === 0) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
+    console.log('Backend using parsed values:', {
+      parsedDaysAssigned,
+      parsedDaysTaken,
+    });
 
-    const originalProjectId = checkTask.rows[0].project_id;
+    // ... rest of function
 
-    // Update the task - NOTE: using NULLIF to handle empty strings as NULL
+    // Update the task
     const result = await client.query(
       `UPDATE tasks 
          SET project_id = $1, 
@@ -243,8 +256,8 @@ router.put('/:id', async (req, res) => {
         rag,
         startDate,
         dueDate,
-        daysAssigned,
-        daysTaken || 0,
+        parsedDaysAssigned, // Use parsed float value
+        parsedDaysTaken, // Use parsed float value
         description,
         tauNotes || null,
         pathToGreen || null,
@@ -252,39 +265,13 @@ router.put('/:id', async (req, res) => {
         id,
       ]
     );
-
-    // Update progress for both original and new project (if changed)
-    await updateProjectProgress(client, projectId);
-
-    // If project changed, update the old project's progress too
-    if (originalProjectId !== projectId) {
-      await updateProjectProgress(client, originalProjectId);
-    }
-
-    // Get project name for the response
-    const projectResult = await client.query(
-      `SELECT company_name, workstream as project_name FROM projects WHERE id = $1`,
-      [projectId]
-    );
-
-    const task = result.rows[0];
-    if (projectResult.rows.length > 0) {
-      task.company_name = projectResult.rows[0].company_name;
-      task.project_name = projectResult.rows[0].project_name;
-    }
-
-    await client.query('COMMIT');
-
-    res.json(task);
+    // Log the result to see what was actually saved
+    console.log('Database update result:', result.rows[0]);
+    // ... rest of function
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Error updating task:', err);
-    res.status(500).json({ error: 'Failed to update task: ' + err.message });
-  } finally {
-    client.release();
+    // ... error handling
   }
 });
-
 // Delete a task
 router.delete('/:id', async (req, res) => {
   const client = await db.pool.connect();

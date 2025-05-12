@@ -10,7 +10,8 @@ const migrations = [
   '004_create_public_holidays.sql',
   '005_resource_allocation_enhancements.sql',
   '006_enhance_tasks_fields.sql',
-  '007_update_tasks_subtask_structure.sql', // New migration
+  '007_update_tasks_subtask_structure.sql',
+  '008_update_days_to_decimal.sql', // New migration
 ];
 
 async function runMigrations() {
